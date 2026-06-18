@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal de Solicitação de Envio em Massa · Security Solidez</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{--bg:#0f1620;--panel:#16202e;--panel2:#1c2939;--line:#2a3a4f;--ink:#e8eef6;
+    --mut:#8da3bd;--acc:#f4b740;--acc2:#3ddc97;--vio:#7c5cff;--warn:#ff7a6b;--rad:14px;
+    --mono:ui-monospace,Menlo,Consolas,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
+  .wrap{max-width:880px;margin:0 auto;padding:18px 16px 80px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 18px;flex-wrap:wrap}
+  .top h1{font-size:20px;margin:0;letter-spacing:-.3px}
+  .top h1 .tag{color:var(--acc);font-weight:700}
+  .who{font-size:12px;color:var(--mut)}
+  .who b{color:var(--acc2)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--rad);padding:16px;margin-bottom:14px}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut);margin:0 0 12px;font-weight:600}
+  label.fld{display:block;font-size:12px;color:var(--mut);margin:0 0 5px}
+  textarea,input,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:11px 12px;font-size:14px;font-family:inherit}
+  textarea{min-height:120px;resize:vertical;font-family:var(--mono);font-size:13px;line-height:1.45}
+  button{cursor:pointer;border:0;border-radius:11px;font-weight:700;font-family:inherit}
+  .btn{background:var(--acc);color:#0f1620;padding:13px 16px;font-size:15px;width:100%}
+  .btn:hover{filter:brightness(1.07)} .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.green{background:var(--acc2)} .btn.vio{background:var(--vio);color:#fff}
+  .btn.sm{padding:8px 12px;font-size:13px;width:auto}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  .btn.danger{background:transparent;border:1px solid var(--warn);color:#ffb3a8}
+  .row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:140px}
+  .muted{color:var(--mut);font-size:12.5px}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:3px 10px;font-size:11.5px;margin:2px 3px 2px 0;color:var(--mut)}
+  .pill.on{background:rgba(61,220,151,.12);border-color:var(--acc2);color:#9ff0c9}
+  .tplitem{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--panel2)}
+  .tplitem .name{font-weight:700;font-size:15px}
+  .tplitem .vars{font-family:var(--mono);font-size:12px;color:var(--acc);margin:4px 0}
+  .tplitem .body{font-size:12.5px;color:var(--mut);white-space:pre-wrap;max-height:64px;overflow:hidden;margin:6px 0}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{font-size:12px;padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--mut);cursor:pointer;user-select:none}
+  .chip.on{background:var(--acc);color:#0f1620;border-color:var(--acc);font-weight:700}
+  .file-drop{border:1.5px dashed var(--line);border-radius:12px;padding:20px;text-align:center;color:var(--mut);cursor:pointer;background:var(--panel2)}
+  .file-drop b{color:var(--acc)}
+  .alert{border-radius:10px;padding:10px 12px;font-size:13px;margin:10px 0;border:1px solid}
+  .alert.ok{background:rgba(61,220,151,.08);border-color:var(--acc2);color:#9ff0c9}
+  .alert.warn{background:rgba(255,122,107,.09);border-color:var(--warn);color:#ffb3a8}
+  .preview{background:#0c1119;border:1px solid var(--line);border-radius:12px;padding:13px;font-size:13px;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:9px;margin:12px 0}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .stat .n{font-size:20px;font-weight:800}.stat .l{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+  .hide{display:none!important}
+  .tabs{display:flex;gap:8px;margin-bottom:14px}
+  .tabs button{flex:1;padding:11px;background:var(--panel2);border:1px solid var(--line);color:var(--mut);font-size:14px}
+  .tabs button.on{background:var(--acc);color:#0f1620;border-color:var(--acc)}
+  footer{color:var(--mut);font-size:11px;text-align:center;margin-top:22px;line-height:1.6}
+  code{font-family:var(--mono);background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12px}
+  .demo{background:rgba(124,92,255,.1);border:1px solid var(--vio);border-radius:10px;padding:9px 12px;font-size:12px;color:#c9bcff;margin-bottom:14px}
+  #regList,#tplList,#filaList,#usrList{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  #solList{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  #regList .tplitem,#tplList .tplitem,#filaList .tplitem,#usrList .tplitem,#solList .tplitem{margin-bottom:0}
+  @media(max-width:620px){#regList,#tplList,#filaList,#usrList,#solList{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:420px){#regList,#tplList,#filaList,#usrList,#solList{grid-template-columns:1fr}}
+  .tplgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  @media(max-width:620px){.tplgrid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:380px){.tplgrid{grid-template-columns:1fr}}
+  .tplcard{border:1px solid var(--line);border-radius:11px;padding:10px;background:var(--panel2);cursor:pointer;transition:.12s}
+  .tplcard:hover{border-color:var(--acc)}
+  .tplcard.sel{border-color:var(--acc);background:rgba(244,183,64,.1)}
+  .tplcard .tn{font-weight:700;font-size:13.5px;word-break:break-word}
+  .tplcard .tv{font-family:var(--mono);font-size:11px;color:var(--acc);margin-top:3px}
+  #regList .tplitem{cursor:pointer}
+  #regList .tplitem:hover{border-color:var(--acc)}
+  .cnt{display:flex;gap:6px;margin:8px 0 4px;flex-wrap:wrap}
+  .cnt span{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:11.5px;color:var(--mut)}
+  .cnt b{color:var(--acc)}
+  .tap{font-size:11px;color:var(--vio);margin-top:6px}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:18px;z-index:50}
+  .modal .inner{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:460px;width:100%;max-height:85vh;overflow:auto;padding:18px}
+  .modal h3{margin:0 0 4px;font-size:18px}
+  .sugg{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;max-height:190px;overflow:auto;z-index:30;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .sugg div{padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--line)}
+  .sugg div:last-child{border-bottom:0}
+  .sugg div:hover{background:var(--panel2);color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Solicitação de Envio em Massa <span class="tag">· Security Solidez</span></h1>
+    <div class="who" id="who"></div>
+  </div>
+  <div class="demo">⚙ Protótipo de validação — salva neste navegador. Na versão hospedada, login e templates ficam num servidor e cada regional acessa do seu próprio aparelho.</div>
+
+  <!-- LOGIN -->
+  <div id="login">
+    <div class="card">
+      <div id="loginNormal">
+        <h2 id="loginTitle">Entrar</h2>
+        <div id="firstRun" class="hide"><div class="alert ok" style="margin-top:0">Primeiro acesso — crie a conta de administrador.</div></div>
+        <label class="fld">Usuário</label>
+        <input type="text" id="luser" autocomplete="username" placeholder="usuário">
+        <label class="fld" style="margin-top:10px">Senha</label>
+        <input type="password" id="lpass" autocomplete="current-password" placeholder="senha">
+        <button class="btn" id="loginGo" style="margin-top:14px">Entrar</button>
+        <p class="muted" id="loginMsg" style="margin-top:8px"></p>
+        <button class="btn ghost sm" id="resetBtn" style="width:100%;margin-top:10px">⟳ Limpar dados e recomeçar (demo)</button>
+        <div id="demoHint" class="muted" style="margin-top:12px;font-size:12px;line-height:1.7"></div>
+      </div>
+      <div id="chgPass" class="hide">
+        <h2>Definir nova senha</h2>
+        <div class="alert warn" style="margin-top:0">No primeiro acesso você precisa criar sua própria senha.</div>
+        <label class="fld">Nova senha</label>
+        <input type="password" id="np1" placeholder="nova senha">
+        <label class="fld" style="margin-top:10px">Confirmar senha</label>
+        <input type="password" id="np2" placeholder="repita a senha">
+        <button class="btn green" id="npGo" style="margin-top:14px">Salvar e entrar</button>
+        <p class="muted" id="npMsg" style="margin-top:8px"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="admin" class="hide">
+    <div class="tabs">
+      <button id="tabTpl" class="on">Templates</button>
+      <button id="tabReg">Regionais</button>
+      <button id="tabFila">Filas</button>
+      <button id="tabSol">Solicitações</button>
+      <button id="tabCons">Consolidado</button>
+      <button id="tabUsr">Acessos</button>
+    </div>
+    <div id="paneTpl">
+      <div class="card" id="tplFormCard">
+        <h2>Cadastrar / editar template</h2>
+        <input type="hidden" id="editId">
+        <label class="fld">Nome do template (vira o nome do arquivo)</label>
+        <input type="text" id="tName" placeholder="ex: lembrete_ultimo_dia">
+        <label class="fld" style="margin-top:10px">Texto do template (use [1] [2]... ou {{1}} {{2}}...)</label>
+        <textarea id="tText" placeholder="Oi, [1]! Seu pagamento vence [2]! Placa: [3]..."></textarea>
+        <p class="muted" id="tVars" style="margin-top:6px"></p>
+        <label class="fld" style="margin-top:8px">Categoria (define o custo por envio)</label>
+        <select id="tCat">
+          <option value="utilitario">Utilitário — R$ 0,05 por envio</option>
+          <option value="marketing">Marketing — R$ 0,33 por envio</option>
+        </select>
+        <label class="fld" style="margin-top:8px">Liberar para quais regionais?</label>
+        <div class="chips" id="tChips"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn vio sm" id="tSave" style="flex:2">Salvar template</button>
+          <button class="btn ghost sm" id="tClear">Limpar</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Templates cadastrados</h2>
+        <div class="row">
+          <input type="text" id="tplSearch" placeholder="🔎 buscar por nome..." style="flex:2">
+          <div style="flex:1;min-width:140px;position:relative">
+            <input type="text" id="tplRegFilter" autocomplete="off" placeholder="🏷️ regional (digite)" style="width:100%">
+            <div id="regSugg" class="sugg hide"></div>
+          </div>
+        </div>
+        <div id="tplList" style="margin-top:12px"></div>
+      </div>
+      <div id="tplPager" style="margin:14px 0"></div>
+    </div>
+    <div id="paneReg" class="hide">
+      <div class="card" id="regFormCard">
+        <h2>Cadastrar regional</h2>
+        <div class="row"><input type="text" id="newReg" placeholder="ex: MG.140" style="flex:3">
+        <button class="btn vio sm" id="regAdd">Adicionar</button></div>
+      </div>
+      <div class="card">
+        <h2>Regionais — templates, filas e acessos de cada uma</h2>
+        <input type="text" id="regSearch" placeholder="🔎 buscar regional por nome..." style="margin-bottom:12px">
+        <div id="regList"></div>
+      </div>
+      <div id="regPager" style="margin:14px 0"></div>
+    </div>
+    <div id="paneFila" class="hide">
+      <div class="card" id="filaFormCard">
+        <h2>Cadastrar fila de retorno</h2>
+        <label class="fld">Nome da fila / setor / campanha (pra onde vão as respostas)</label>
+        <input type="text" id="filaName" placeholder="ex: Retorno Cobrança MG.70">
+        <label class="fld" style="margin-top:10px">Pertence a quais regionais? (opcional)</label>
+        <div class="chips" id="filaChips"></div>
+        <button class="btn vio sm" id="filaAdd" style="width:100%;margin-top:12px">Adicionar fila</button>
+      </div>
+      <div class="card">
+        <h2>Filas cadastradas</h2>
+        <div class="row">
+          <input type="text" id="filaSearch" placeholder="🔎 buscar por nome..." style="flex:2">
+          <div style="flex:1;min-width:140px;position:relative">
+            <input type="text" id="filaRegFilter" autocomplete="off" placeholder="🏷️ regional (digite)" style="width:100%">
+            <div id="filaSugg" class="sugg hide"></div>
+          </div>
+        </div>
+        <div id="filaList" style="margin-top:12px"></div>
+      </div>
+      <div id="filaPager" style="margin:14px 0"></div>
+    </div>
+    <div id="paneSol" class="hide">
+      <div class="card">
+        <h2>Solicitações de disparo</h2>
+        <div class="row">
+          <select id="solFilter" style="flex:1"><option value="todos">Todas</option><option value="pend">Pendentes</option><option value="feito">Realizadas</option></select>
+          <div style="flex:1;min-width:140px;position:relative">
+            <input type="text" id="solRegFilter" autocomplete="off" placeholder="🏷️ regional (digite)" style="width:100%">
+            <div id="solSugg" class="sugg hide"></div>
+          </div>
+        </div>
+        <div id="solList" style="margin-top:12px"></div>
+        <div id="solPager" style="margin-top:12px"></div>
+      </div>
+    </div>
+    <div id="paneCons" class="hide">
+      <div class="card">
+        <h2>Consolidado de disparos por regional</h2>
+        <label class="fld">Período</label>
+        <select id="consPer"><option value="hoje">Hoje</option><option value="60">Últimos 60 dias</option><option value="tudo">Tudo</option></select>
+        <div id="consBox" style="margin-top:12px"></div>
+      </div>
+    </div>
+    <div id="paneUsr" class="hide">
+      <div class="card" id="usrFormCard">
+        <h2>Criar acesso de regional</h2>
+        <label class="fld">Regional</label>
+        <select id="uReg"></select>
+        <div class="row" style="margin-top:10px">
+          <div><label class="fld">Usuário</label><input type="text" id="uUser" placeholder="ex: mg70"></div>
+          <div><label class="fld">Senha</label><input type="text" id="uPass" placeholder="senha"></div>
+        </div>
+        <label class="chk" style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--mut);cursor:pointer">
+          <input type="checkbox" id="uMustChange" style="width:auto"> Exigir que o usuário troque a senha no primeiro acesso
+        </label>
+        <button class="btn vio sm" id="uAdd" style="width:100%;margin-top:12px">Criar acesso</button>
+      </div>
+      <div class="card">
+        <h2>Acessos cadastrados</h2>
+        <div class="row">
+          <input type="text" id="usrSearch" placeholder="🔎 buscar por login..." style="flex:2">
+          <div style="flex:1;min-width:140px;position:relative">
+            <input type="text" id="usrRegFilter" autocomplete="off" placeholder="🏷️ regional (digite)" style="width:100%">
+            <div id="usrSugg" class="sugg hide"></div>
+          </div>
+        </div>
+        <div id="usrList" style="margin-top:12px"></div>
+      </div>
+    </div>
+    <button class="btn ghost" id="adminOut">Sair</button>
+  </div>
+
+  <!-- REGIONAL -->
+  <div id="regional" class="hide">
+    <div class="card">
+      <h2>1 · Escolha o template liberado</h2>
+      <input type="text" id="rSearch" placeholder="🔎 buscar template..." style="margin-bottom:10px">
+      <p class="muted" id="rNoTpl"></p>
+      <div id="rTplGrid" class="tplgrid"></div>
+      <div id="rTplPrev"></div>
+    </div>
+    <div class="card hide" id="rUpload">
+      <h2>2 · Suba a planilha</h2>
+      <div class="file-drop" id="drop"><b>Toque para escolher</b> o Excel/CSV<div id="fname" class="muted" style="margin-top:8px"></div></div>
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" class="hide">
+      <p class="muted" id="fileinfo" style="margin-top:8px"></p>
+      <div id="dateBox" class="hide" style="margin-top:12px">
+        <label class="fld">Qual a data de hoje? (esse template tem lembrete "vence")</label>
+        <input type="date" id="today">
+      </div>
+      <label class="fld" style="margin-top:12px">Fila de retorno (pra onde vão as respostas dos clientes)</label>
+      <select id="rFila"></select>
+      <label class="chk" style="margin-top:12px"><input type="checkbox" id="schedOn"> Agendar para data/hora específica</label>
+      <input type="datetime-local" id="schedAt" class="hide" style="margin-top:6px">
+      <button class="btn green" id="rGen" style="margin-top:14px">Solicitar disparo</button>
+    </div>
+    <div id="rOut"></div>
+    <div class="card">
+      <h2>Minhas solicitações</h2>
+      <div id="histLast"></div>
+      <div id="histPager" style="margin-top:10px"></div>
+      <button class="btn ghost sm" id="hist60" style="width:100%;margin-top:8px">⬇ Baixar últimos 60 dias (CSV)</button>
+      <div id="hist60box"></div>
+    </div>
+    <button class="btn ghost" id="regOut">Sair</button>
+  </div>
+
+  <div id="regModal" class="modal hide"><div class="inner" id="regModalBody"></div></div>
+
+  <footer>
+    Regras embutidas: telefone (12/13 díg, +55) · placa → chassi → <code>xxx-xxxx</code> · nome (prefixo CPF) ·
+    valor com ponto · day-delta · UTF-8-SIG · detecção de tipo por conteúdo.
+  </footer>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const DEFAULT_REGIONAIS=['MG.56','MG.70','MG.97','MG.113','MG.120','MG.128','MG.129','MG.132','MT','BA.24','BA.25','SE.04','SE.05','SP','PE.07','RJ.04','CE.01'];
+function getRegs(){return DB.get('agv_regionais',DEFAULT_REGIONAIS);}
+function setRegs(r){DB.set('agv_regionais',r);}
+const CUSTOS={utilitario:0.05, marketing:0.33}; // R$ por envio
+function custoCat(cat){return CUSTOS[cat]!=null?CUSTOS[cat]:CUSTOS.utilitario;}
+function catLabel(cat){return cat==='marketing'?'Marketing':'Utilitário';}
+function brl(n){return 'R$ '+n.toFixed(2).replace('.',',');}
+
+// ---------- persistência (localStorage, com fallback memória) ----------
+const mem={};
+const DB={
+  get(k,d){ try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return k in mem?mem[k]:d;} },
+  set(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){mem[k]=v;} }
+};
+function getTpls(){return DB.get('agv_tpls',[]);}
+function setTpls(t){DB.set('agv_tpls',t);}
+function getFilas(){return DB.get('agv_filas',[]).map(f=>typeof f==='string'?{name:f,regionais:[]}:f);}      // [{name, regionais:[]}]
+function setFilas(f){DB.set('agv_filas',f);}
+function filasDe(reg){return getFilas().filter(f=>f.regionais&&f.regionais.includes(reg));}
+function getReqs(){const lim=Date.now()-60*86400000;return DB.get('agv_reqs',[]).filter(r=>r.ts>=lim);}
+function setReqs(r){DB.set('agv_reqs',r);}
+function addReq(req){const a=getReqs();a.unshift(req);setReqs(a.slice(0,2000));}
+function updReq(id,patch){const a=getReqs();const i=a.findIndex(x=>x.id===id);if(i>=0){Object.assign(a[i],patch);setReqs(a);}}
+
+// ---------- motor de processamento (testado) ----------
+function stripDigits(s){return (s==null?'':String(s)).replace(/\D/g,'');}
+function normPhone(p){const d=stripDigits(p);if(!d)return null;
+  if(d.startsWith('55')&&(d.length===12||d.length===13))return d;
+  if(d.length===10||d.length===11)return '55'+d;return null;}
+function cleanName(n){if(n==null)return '';let s=String(n).trim();
+  s=s.replace(/^[<>*"\s]+|[<>*"\s]+$/g,'');s=s.replace(/^\s*\d{1,3}(?:[.\/-]\d+)+\s+/,'');
+  s=s.replace(/^\s*\d{6,}\s+/,'');return s.trim();}
+function fmtValor(v){let raw=String(v).trim();let num;
+  if(/,/.test(raw)&&/\.\d{3}/.test(raw))num=parseFloat(raw.replace(/\./g,'').replace(',','.'));
+  else num=parseFloat(raw.replace(',','.'));
+  return isNaN(num)?String(v).trim().replace(',','.'):num.toFixed(2);}
+function excelDateToJS(v){if(v instanceof Date)return v;
+  if(typeof v==='number')return new Date(Math.round((v-25569)*86400*1000));
+  let s=String(v).trim();let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return new Date(+m[3],+m[2]-1,+m[1]);
+  const d=new Date(s);return isNaN(d)?null:d;}
+function fmtDate(d){if(!d)return '';const p=n=>String(n).padStart(2,'0');return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();}
+const WD=['DOMINGO','SEGUNDA-FEIRA','TERÇA-FEIRA','QUARTA-FEIRA','QUINTA-FEIRA','SEXTA-FEIRA','SÁBADO'];
+function dayDelta(venc,hoje){const a=new Date(venc.getFullYear(),venc.getMonth(),venc.getDate());
+  const b=new Date(hoje.getFullYear(),hoje.getMonth(),hoje.getDate());const delta=Math.round((a-b)/86400000);
+  if(delta===0)return 'HOJE';if(delta===1)return 'AMANHÃ';if(delta>=2&&delta<=7)return WD[a.getDay()];return fmtDate(a);}
+function detectVars(tpl){const set=new Set();let m;const r1=/\{\{\s*(\d+)\s*\}\}/g;while(m=r1.exec(tpl))set.add(+m[1]);
+  const r2=/\[\s*(\d+)\s*\]/g;while(m=r2.exec(tpl))set.add(+m[1]);return [...set].sort((a,b)=>a-b);}
+function hasDiaVar(tpl){return /vence\s*(em)?\s*(\{\{\s*\d+\s*\}\}|\[\s*\d+\s*\])/i.test(tpl);}
+function classifyValue(v){let s=(v==null?'':String(v)).trim();if(!s)return null;
+  if(/^0002[0-9]{2}/.test(s.replace(/\s/g,'')))return 'pix';
+  if(/^https?:\/\//i.test(s))return 'link';
+  const up=s.toUpperCase().replace(/[\s-]/g,'');
+  if(/^[A-Z]{3}\d[A-Z]\d{2}$/.test(up)||/^[A-Z]{3}\d{4}$/.test(up))return 'placa';
+  if(/^[A-HJ-NPR-Z0-9]{17}$/.test(up))return 'chassi';
+  const dg=s.replace(/\D/g,'');if(/^[\d().+\-\s]+$/.test(s)&&dg.length>=10&&dg.length<=13)return 'phone';
+  if(/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(s)||/\d{4}-\d{2}-\d{2}/.test(s))return 'vencimento';
+  if(/^R?\$?\s*-?\d{1,3}([.,]\d{3})*([.,]\d{1,2})?$/.test(s)&&/\d/.test(s))return 'valor';
+  if(/[A-Za-zÀ-ÿ]/.test(s)&&/\s/.test(s))return 'nome';
+  if(/^[A-Za-zÀ-ÿ.\s]+$/.test(s))return 'nome';return 'outro';}
+
+const ALIAS={nome:['nome do associado','associado','nome','titulo','título','cliente'],placa:['placa'],
+  chassi:['chassi'],valor:['valor do boleto','valor','valor da mensalidade'],
+  vencimento:['data vencimento','vencimento'],pix:['copia e cola pix','pix','chave pix'],
+  link:['link boleto','link do boleto','boleto','link'],veiculo:['modelo','fabricante/modelo','veiculo','tipo de veículo'],
+  consultor:['consultor']};
+const HEADER_TOKENS=['associado','placa','chassi','telefone','fone','valor','vencimento','pix','consultor','modelo','link'];
+
+let SHEET=null,HEAD=null,COLT={};
+function readFile(file,cb){
+  const r=new FileReader();
+  r.onload=e=>{try{
+    const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+    let hr=0,best=0;for(let i=0;i<Math.min(3,arr.length);i++){
+      const toks=arr[i].map(x=>String(x).toLowerCase().trim());
+      const sc=HEADER_TOKENS.filter(t=>toks.some(c=>c.includes(t))).length;if(sc>best){best=sc;hr=i;}}
+    const headers=arr[hr].map(x=>String(x).trim());
+    const rows=arr.slice(hr+1).filter(r=>r.some(c=>String(c).trim()!=='')).map(r=>{const o={};headers.forEach((h,i)=>o[h]=r[i]);return o;});
+    SHEET=rows;HEAD=headers;COLT={};
+    for(const h of headers){const vals=rows.slice(0,25).map(x=>x[h]).filter(x=>String(x).trim()!=='');
+      const c={};for(const v of vals){const t=classifyValue(v);if(t)c[t]=(c[t]||0)+1;}
+      let b=null,bn=0;for(const k in c)if(c[k]>bn){bn=c[k];b=k;}COLT[h]=b;}
+    cb(null,{rows:rows.length,hr});
+  }catch(err){cb(err);}};
+  r.readAsArrayBuffer(file);
+}
+function resolveCol(type){if(!HEAD)return null;const lc=HEAD.map(h=>h.toLowerCase().trim());
+  const al=ALIAS[type]||[type];
+  for(const a of al){const i=lc.indexOf(a);if(i>=0)return HEAD[i];}
+  for(const a of al){const i=lc.findIndex(c=>c.includes(a));if(i>=0)return HEAD[i];}
+  const want=type==='veiculo'?'nome':type;for(const h of HEAD)if(COLT[h]===want)return h;return null;}
+function resolvePhoneCols(){if(!HEAD)return [];const lc=HEAD.map(h=>h.toLowerCase().trim());const f=[];
+  ['fone 1','fone 2','telefone 1','telefone 2','telefone','fone2','fone1'].forEach(a=>{const i=lc.indexOf(a);if(i>=0&&!f.includes(HEAD[i]))f.push(HEAD[i]);});
+  if(!f.length)HEAD.forEach((h,i)=>{if(/fone|tel/.test(lc[i]))f.push(h);});
+  if(!f.length)HEAD.forEach(h=>{if(COLT[h]==='phone')f.push(h);});return f;}
+function suggestType(tpl,n){const pats=[`{{${n}}}`,`{{ ${n} }}`,`[${n}]`,`[ ${n} ]`];let idx=-1;
+  for(const p of pats){const i=tpl.indexOf(p);if(i>=0){idx=i;break;}}if(idx<0)return null;
+  const b=tpl.slice(Math.max(0,idx-30),idx).toLowerCase();
+  if(/vence\s*(em)?\s*$/.test(b))return 'dia';if(/placa[^a-z]*$/.test(b))return 'placa';
+  if(/(valor|r\$)[^a-z0-9]*$/.test(b))return 'valor';if(/vencimento[^a-z]*$/.test(b))return 'vencimento';
+  if(/(pix|chave pix)[^a-z]*$/.test(b))return 'pix';if(/(boleto|link)[^a-z]*$/.test(b))return 'link';
+  if(/ve[ií]culo[^a-z]*$/.test(b))return 'placa';if(/consultor[^a-z]*$/.test(b))return 'consultor';
+  if(n===1&&/(oi|ol[áa]|sr\(a\))[,!\s]*$/i.test(b))return 'nome';return null;}
+function buildMapping(tpl){const vars=detectVars(tpl);const types={};
+  vars.forEach(n=>types[n]=suggestType(tpl,n));
+  const used=new Set(Object.values(types).filter(Boolean));
+  const order=['nome','placa','valor','vencimento','pix','link','veiculo'];
+  const canon=order.filter(t=>!used.has(t)&&resolveCol(t));let ci=0;
+  vars.forEach(n=>{if(!types[n])types[n]=canon[ci++]||'nome';});
+  return vars.map(n=>({n,type:types[n]}));}
+function getVal(row,type){
+  if(type==='placa'){let p=String(row[resolveCol('placa')]??'').trim();if(p)return p;
+    let c=String(row[resolveCol('chassi')]??'').trim();return c||'xxx-xxxx';}
+  if(type==='nome')return cleanName(row[resolveCol('nome')]);
+  if(type==='valor')return fmtValor(row[resolveCol('valor')]);
+  if(type==='veiculo')return String(row[resolveCol('veiculo')]??'').trim();
+  if(type==='pix')return String(row[resolveCol('pix')]??'').trim();
+  if(type==='link')return String(row[resolveCol('link')]??'').trim();
+  if(type==='consultor')return String(row[resolveCol('consultor')]??'').trim();
+  if(type==='vencimento'){const d=excelDateToJS(row[resolveCol('vencimento')]);return d?fmtDate(d):'';}
+  if(type==='dia')return '__DIA__';return '';}
+function generate(tpl,hoje){
+  const mapping=buildMapping(tpl);const phoneCols=resolvePhoneCols();
+  if(!phoneCols.length)return {err:'Não encontrei coluna de telefone na planilha.'};
+  const vencCol=resolveCol('vencimento');
+  const header=['telefone',...mapping.map(m=>`[${m.n}]`)];
+  const out=[];let land=0,mob=0,nofone=0,fb=0,dup=0;const dc={};const seen=new Set();
+  for(const row of SHEET){
+    let phones=[];for(const c of phoneCols){const p=normPhone(row[c]);if(p&&!phones.includes(p))phones.push(p);}
+    if(!phones.length){nofone++;continue;}
+    let vd=vencCol?excelDateToJS(row[vencCol]):null;
+    const vals=mapping.map(m=>{let v=getVal(row,m.type);if(v==='__DIA__')v=(hoje&&vd)?dayDelta(vd,hoje):'';return v;});
+    for(const ph of phones){
+      if(seen.has(ph)){dup++;continue;}   // Meta: 1 envio por número no disparo (frota)
+      seen.add(ph);
+      out.push([ph,...vals]);if(ph.length===12)land++;else mob++;
+      mapping.forEach((m,i)=>{if(m.type==='placa'&&vals[i]==='xxx-xxxx')fb++;});
+      if(vd){const k=fmtDate(vd);dc[k]=(dc[k]||0)+1;}
+    }
+  }
+  return {mapping,header,out,land,mob,nofone,fb,dup,dc,origem:SHEET.length};
+}
+function toCSV(header,rows){return [header,...rows].map(r=>r.map(c=>{let s=(c==null?'':String(c));
+  if(/[",\n;]/.test(s))s='"'+s.replace(/"/g,'""')+'"';return s;}).join(',')).join('\r\n');}
+
+// ================= UI =================
+let role=null, regional=null, currentUser=null;
+function show(id){['login','admin','regional'].forEach(x=>$('#'+x).classList.toggle('hide',x!==id));
+  $('#who').innerHTML = role==='admin'?('Admin · <b>'+(currentUser||'')+'</b>'): role==='regional'?('Regional: <b>'+regional+'</b> · usuário <b>'+(currentUser||'')+'</b>'):'';}
+
+// login / usuários
+function getUsers(){return DB.get('agv_users',[]);}
+function setUsers(u){DB.set('agv_users',u);}
+function hasAdmin(){return getUsers().some(u=>u.role==='admin');}
+function refreshLogin(){
+  if(!hasAdmin()){ $('#firstRun').classList.remove('hide'); $('#loginTitle').textContent='Criar administrador'; $('#loginGo').textContent='Criar e entrar'; }
+  else { $('#firstRun').classList.add('hide'); $('#loginTitle').textContent='Entrar'; $('#loginGo').textContent='Entrar'; }
+  // dica dos acessos da demo
+  const us=getUsers();const adm=us.find(u=>u.role==='admin');
+  const regs=us.filter(u=>u.role==='regional');
+  if($('#demoHint')){
+    if(adm&&adm.user==='admin'&&adm.pass==='admin'){
+      $('#demoHint').innerHTML='🔑 <b>Acessos de teste</b><br>Admin: <b>admin</b> / <b>admin</b>'+
+        (regs.length?'<br>Regionais (senha <b>1234</b>): '+regs.map(r=>'<b>'+r.user+'</b>').join(', '):'');
+    } else { $('#demoHint').innerHTML=''; }
+  }
+}
+$('#loginGo').onclick=()=>{
+  const u=$('#luser').value.trim(), p=$('#lpass').value;
+  if(!u||!p){$('#loginMsg').textContent='Preencha usuário e senha.';return;}
+  if(!hasAdmin()){ // cria admin no 1º acesso
+    setUsers([{user:u,pass:p,role:'admin'}]);
+    role='admin';currentUser=u;afterLogin();return;
+  }
+  const rec=getUsers().find(x=>x.user===u&&x.pass===p);
+  if(!rec){$('#loginMsg').textContent='Usuário ou senha inválidos.';return;}
+  if(rec.mustChange){ pendingUser=rec; $('#loginNormal').classList.add('hide'); $('#chgPass').classList.remove('hide'); $('#np1').value='';$('#np2').value='';$('#npMsg').textContent=''; return; }
+  role=rec.role; regional=rec.regional||null; currentUser=rec.user; afterLogin();
+};
+let pendingUser=null;
+$('#npGo')&&($('#npGo').onclick=()=>{
+  const a=$('#np1').value, b=$('#np2').value;
+  if(!a||a.length<4){$('#npMsg').textContent='A senha precisa ter ao menos 4 caracteres.';return;}
+  if(a!==b){$('#npMsg').textContent='As senhas não conferem.';return;}
+  if(!pendingUser)return;
+  const users=getUsers();const ix=users.findIndex(x=>x.user===pendingUser.user);
+  if(ix>=0){users[ix].pass=a;users[ix].mustChange=false;setUsers(users);}
+  role=pendingUser.role; regional=pendingUser.regional||null; currentUser=pendingUser.user; pendingUser=null;
+  $('#chgPass').classList.add('hide'); $('#loginNormal').classList.remove('hide');
+  afterLogin();
+});
+function afterLogin(){
+  $('#luser').value='';$('#lpass').value='';$('#loginMsg').textContent='';
+  if(role==='admin'){show('admin');renderAdmin();}
+  else{show('regional');renderRegional();}
+}
+$('#adminOut').onclick=$('#regOut').onclick=()=>{role=null;regional=null;pendingUser=null;
+  if($('#chgPass'))$('#chgPass').classList.add('hide');if($('#loginNormal'))$('#loginNormal').classList.remove('hide');
+  show('login');refreshLogin();};
+$('#lpass')&&($('#lpass').onkeydown=e=>{if(e.key==='Enter')$('#loginGo').click();});
+$('#luser')&&($('#luser').onkeydown=e=>{if(e.key==='Enter')$('#loginGo').click();});
+$('#resetBtn')&&($('#resetBtn').onclick=()=>{
+  if(!confirm('Isso apaga todos os dados do portal neste navegador (acessos, templates, filas, solicitações) e recarrega com a demonstração. Continuar?'))return;
+  try{['agv_users','agv_regionais','agv_tpls','agv_filas','agv_reqs','agv_pin'].forEach(k=>localStorage.removeItem(k));}catch(e){}
+  for(const k in mem)delete mem[k];
+  location.reload();
+});
+
+// ACESSOS (admin cria login das regionais)
+$('#uAdd')&&($('#uAdd').onclick=()=>{
+  const reg=$('#uReg').value, u=$('#uUser').value.trim(), p=$('#uPass').value.trim();
+  if(!u||!p){alert('Preencha usuário e senha');return;}
+  const users=getUsers();
+  if(users.some(x=>x.user===u)){alert('Já existe um usuário com esse nome');return;}
+  users.push({user:u,pass:p,role:'regional',regional:reg,mustChange:$('#uMustChange').checked});setUsers(users);
+  $('#uUser').value='';$('#uPass').value='';$('#uMustChange').checked=false;renderUsr();
+});
+function renderUsr(){
+  $('#uReg').innerHTML=getRegs().map(r=>`<option>${r}</option>`).join('');
+  let regs=getUsers().filter(u=>u.role==='regional');
+  const q=($('#usrSearch')?.value||'').trim().toLowerCase();
+  const rf=($('#usrRegFilter')?.value||'').trim().toUpperCase();
+  if(q)regs=regs.filter(u=>u.user.toLowerCase().includes(q));
+  if(rf)regs=regs.filter(u=>(u.regional||'').toUpperCase().includes(rf));
+  $('#usrList').innerHTML=regs.length?regs.map(u=>`<div class="tplitem">
+    <div class="name" style="margin-bottom:6px">${u.user}</div>
+    <div><span class="pill on">${u.regional}</span>${u.mustChange?'<span class="pill" style="border-color:var(--acc);color:var(--acc)">trocar senha no 1º acesso</span>':''}</div>
+    <button class="btn danger sm" style="width:100%;margin-top:8px" onclick="delUsr('${u.user.replace(/'/g,"\\'")}')">Excluir</button></div>`).join('')
+    :'<p class="muted">'+((q||rf)?'Nenhum acesso encontrado.':'Nenhum acesso de regional criado. Cadastre acima.')+'</p>';
+}
+$('#usrSearch')&&($('#usrSearch').oninput=renderUsr);
+function showUsrSugg(){if(!$('#usrSugg'))return;
+  const qq=($('#usrRegFilter').value||'').trim().toUpperCase();
+  const m=getRegs().filter(r=>r.toUpperCase().includes(qq)).slice(0,30);
+  if(!m.length){$('#usrSugg').classList.add('hide');return;}
+  $('#usrSugg').innerHTML=m.map(r=>`<div onmousedown="pickUsrReg('${r}')">${r}</div>`).join('');
+  $('#usrSugg').classList.remove('hide');}
+window.pickUsrReg=r=>{$('#usrRegFilter').value=r;$('#usrSugg').classList.add('hide');renderUsr();};
+$('#usrRegFilter')&&($('#usrRegFilter').oninput=()=>{showUsrSugg();renderUsr();});
+$('#usrRegFilter')&&($('#usrRegFilter').onfocus=showUsrSugg);
+$('#usrRegFilter')&&($('#usrRegFilter').onblur=()=>setTimeout(()=>$('#usrSugg')&&$('#usrSugg').classList.add('hide'),150));
+window.delUsr=user=>{setUsers(getUsers().filter(u=>u.user!==user));renderUsr();};
+
+// admin tabs
+$('#tabTpl').onclick=()=>{setTab('Tpl');populateTplFilter();renderTplList();};
+$('#tabReg').onclick=()=>{setTab('Reg');renderRegTab();};
+$('#tabFila').onclick=()=>{setTab('Fila');renderFilas();};
+$('#tabSol').onclick=()=>{setTab('Sol');renderSol();};
+$('#tabCons').onclick=()=>{setTab('Cons');renderCons();};
+$('#tabUsr').onclick=()=>{setTab('Usr');renderUsr();};
+function setTab(t){['Tpl','Reg','Fila','Sol','Cons','Usr'].forEach(x=>{
+  $('#tab'+x).classList.toggle('on',x===t);$('#pane'+x).classList.toggle('hide',x!==t);});}
+
+// FILAS
+function filaChipsRender(sel){sel=sel||[];$('#filaChips').innerHTML=getRegs().map(r=>`<span class="chip ${sel.includes(r)?'on':''}" data-r="${r}">${r}</span>`).join('');
+  $$('#filaChips .chip').forEach(c=>c.onclick=()=>c.classList.toggle('on'));}
+$('#filaAdd').onclick=()=>{const n=$('#filaName').value.trim();if(!n){alert('Digite o nome da fila');return;}
+  const regs=$$('#filaChips .chip.on').map(c=>c.dataset.r);
+  const f=getFilas();const i=f.findIndex(x=>x.name===n);
+  if(i>=0)f[i].regionais=regs;else f.push({name:n,regionais:regs});
+  setFilas(f);$('#filaName').value='';filaChipsRender([]);filaPage=1;renderFilas();};
+let filaPage=1; const FILA_P1=12, FILA_PN=18;
+function renderFilas(){let f=getFilas();filaChipsRender($$('#filaChips .chip.on').map(c=>c.dataset.r));
+  const q=($('#filaSearch')?.value||'').trim().toLowerCase();
+  const rf=($('#filaRegFilter')?.value||'').trim().toUpperCase();
+  if(q)f=f.filter(x=>(x.name||'').toLowerCase().includes(q));
+  if(rf)f=f.filter(x=>(x.regionais||[]).some(r=>r.toUpperCase().includes(rf)));
+  const total=f.length;
+  const pages=total<=FILA_P1?1:1+Math.ceil((total-FILA_P1)/FILA_PN);
+  if(filaPage>pages)filaPage=pages; if(filaPage<1)filaPage=1;
+  let start,count; if(filaPage<=1){start=0;count=FILA_P1;}else{start=FILA_P1+(filaPage-2)*FILA_PN;count=FILA_PN;}
+  const slice=f.slice(start,start+count);
+  $('#filaList').innerHTML=total?slice.map(x=>`<div class="tplitem">
+    <div class="name" style="margin-bottom:6px">${x.name||'(sem nome)'}</div>
+    <div>${(x.regionais||[]).length?(x.regionais||[]).map(r=>`<span class="pill on">${r}</span>`).join(''):'<span class="muted">— sem regional —</span>'}</div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="btn ghost sm" style="flex:1;min-width:0;padding:7px 4px" onclick="editFila('${(x.name||'').replace(/'/g,"\\'")}')">Editar</button>
+      <button class="btn danger sm" style="flex:1;min-width:0;padding:7px 4px" onclick="delFila('${(x.name||'').replace(/'/g,"\\'")}')">Excluir</button></div></div>`).join('')
+    :'<p class="muted">'+((q||rf)?'Nenhuma fila encontrada.':'Nenhuma fila cadastrada. Cadastre acima.')+'</p>';
+  if($('#filaFormCard'))$('#filaFormCard').classList.toggle('hide',filaPage>1);
+  if($('#filaPager')){
+    $('#filaPager').innerHTML=pages>1?`<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
+      <button class="btn ghost sm" ${filaPage<=1?'disabled':''} onclick="filaGoP(${filaPage-1})">‹ Anterior</button>
+      <span class="muted">Página ${filaPage} de ${pages} · ${total} filas</span>
+      <button class="btn ghost sm" ${filaPage>=pages?'disabled':''} onclick="filaGoP(${filaPage+1})">Próxima ›</button></div>`
+      :(total>0?`<div class="muted" style="text-align:center">${total} fila(s)</div>`:'');
+  }
+}
+window.filaGoP=p=>{filaPage=p;renderFilas();};
+window.editFila=name=>{const fl=getFilas().find(x=>x.name===name);if(!fl)return;
+  filaPage=1;if($('#filaFormCard'))$('#filaFormCard').classList.remove('hide');
+  $('#filaName').value=fl.name;filaChipsRender(fl.regionais||[]);window.scrollTo(0,0);};
+window.delFila=n=>{setFilas(getFilas().filter(x=>x.name!==n));renderFilas();};
+// busca da fila
+$('#filaSearch')&&($('#filaSearch').oninput=()=>{filaPage=1;renderFilas();});
+function showFilaSugg(){if(!$('#filaSugg'))return;
+  const qq=($('#filaRegFilter').value||'').trim().toUpperCase();
+  const m=getRegs().filter(r=>r.toUpperCase().includes(qq)).slice(0,30);
+  if(!m.length){$('#filaSugg').classList.add('hide');return;}
+  $('#filaSugg').innerHTML=m.map(r=>`<div onmousedown="pickFilaReg('${r}')">${r}</div>`).join('');
+  $('#filaSugg').classList.remove('hide');}
+window.pickFilaReg=r=>{$('#filaRegFilter').value=r;$('#filaSugg').classList.add('hide');filaPage=1;renderFilas();};
+$('#filaRegFilter')&&($('#filaRegFilter').oninput=()=>{filaPage=1;showFilaSugg();renderFilas();});
+$('#filaRegFilter')&&($('#filaRegFilter').onfocus=showFilaSugg);
+$('#filaRegFilter')&&($('#filaRegFilter').onblur=()=>setTimeout(()=>$('#filaSugg')&&$('#filaSugg').classList.add('hide'),150));
+
+// SOLICITAÇÕES (admin)
+$('#solFilter').onchange=()=>{solPage=1;renderSol();};
+let solPage=1; const SOL_PS=8;
+function slaInfo(ts){const mins=Math.floor((Date.now()-ts)/60000);
+  const color=mins<20?'var(--acc2)':mins<40?'var(--acc)':'var(--warn)';
+  const txt=mins<60?mins+' min':Math.floor(mins/60)+'h '+(mins%60)+'min';
+  return {mins,color,txt};}
+function renderSol(){const fl=$('#solFilter').value;let rs=getReqs();
+  if(fl==='pend')rs=rs.filter(r=>r.status==='Solicitado');
+  else if(fl==='feito')rs=rs.filter(r=>r.status==='Realizado');
+  const rf=($('#solRegFilter')?.value||'').trim().toUpperCase();
+  if(rf)rs=rs.filter(r=>(r.regional||'').toUpperCase().includes(rf));
+  rs=rs.slice().sort((a,b)=>{
+    const ap=a.status==='Solicitado'?0:1, bp=b.status==='Solicitado'?0:1;
+    if(ap!==bp)return ap-bp;            // pendentes primeiro
+    if(ap===0)return a.ts-b.ts;          // pendentes: mais antigas (esperando há mais tempo) no topo
+    return b.ts-a.ts;                    // realizadas: mais recentes primeiro
+  });
+  const total=rs.length, pages=Math.max(1,Math.ceil(total/SOL_PS));
+  if(solPage>pages)solPage=pages; if(solPage<1)solPage=1;
+  const slice=rs.slice((solPage-1)*SOL_PS,solPage*SOL_PS);
+  if(!total){$('#solList').innerHTML='<p class="muted">Nenhuma solicitação.</p>';if($('#solPager'))$('#solPager').innerHTML='';return;}
+  $('#solList').innerHTML=slice.map(r=>{
+    const done=r.status==='Realizado';
+    const sla=!done?slaInfo(r.ts):null;
+    return `<div class="tplitem" onclick="openSolDetail('${r.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <span class="name">${r.regional} · ${r.template}</span>
+        <span class="pill ${done?'on':''}" style="${done?'':'border-color:var(--acc);color:var(--acc)'}">${r.status}</span></div>
+      <div class="muted" style="margin:4px 0">solicitado por <b style="color:var(--acc2)">${r.user||'-'}</b> · ${r.dt} · ${r.lines} linhas · ${brl(r.cost)}</div>
+      <div class="muted" style="font-size:11.5px">template: <b style="color:var(--ink)">${r.template}</b> · fila: <b style="color:var(--ink)">${r.fila||'-'}</b> · agenda: <b style="color:${r.sched?'var(--acc)':'var(--mut)'}">${r.sched||'imediato'}</b></div>
+      ${!done?`<div style="margin-top:8px"><span class="sol-timer pill" data-ts="${r.ts}" style="border-color:${sla.color};color:${sla.color}">⏱ aguardando há ${sla.txt}</span></div>`:`<div class="muted" style="font-size:11.5px;margin-top:6px">✅ realizado ${r.doneAt||''}</div>`}
+      ${!done?`<button class="btn green sm" style="width:100%;margin-top:8px;padding:7px 4px" onclick="event.stopPropagation();markDone('${r.id}')">✓ Marcar realizado</button>`:''}
+    </div>`;}).join('');
+  if($('#solPager')){
+    $('#solPager').innerHTML=pages>1?`<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
+      <button class="btn ghost sm" ${solPage<=1?'disabled':''} onclick="solGo(${solPage-1})">‹ Anterior</button>
+      <span class="muted">Página ${solPage} de ${pages} · ${total}</span>
+      <button class="btn ghost sm" ${solPage>=pages?'disabled':''} onclick="solGo(${solPage+1})">Próxima ›</button></div>`
+      :(total>0?`<div class="muted" style="text-align:center">${total} solicitação(ões)</div>`:'');
+  }
+}
+window.solGo=p=>{solPage=p;renderSol();};
+function updateSolTimers(){$$('.sol-timer').forEach(el=>{const ts=+el.dataset.ts;const s=slaInfo(ts);
+  el.style.borderColor=s.color;el.style.color=s.color;el.textContent='⏱ aguardando há '+s.txt;});}
+setInterval(updateSolTimers,30000);
+window.downloadReqCsv=id=>{const r=getReqs().find(x=>x.id===id);
+  if(!r||!r.csv){alert('Esta solicitação não tem arquivo armazenado (ex: dados de demonstração).');return;}
+  const url=URL.createObjectURL(new Blob(['\ufeff'+r.csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download=r.fn||'disparo.csv';document.body.appendChild(a);a.click();a.remove();};
+window.openSolDetail=id=>{const r=getReqs().find(x=>x.id===id);if(!r)return;
+  const done=r.status==='Realizado';const sla=!done?slaInfo(r.ts):null;
+  $('#regModalBody').innerHTML=`<h3>${r.regional} · ${r.template}</h3>
+    <div class="muted" style="margin-bottom:10px">Status: <b style="color:${done?'var(--acc2)':'var(--acc)'}">${r.status}${done&&r.doneAt?' em '+r.doneAt:''}</b>${!done&&sla?` · <b style="color:${sla.color}">⏱ aguardando há ${sla.txt}</b>`:''}</div>
+    <div style="font-size:13.5px;line-height:1.9">
+      <div>👤 Solicitado por: <b>${r.user||'-'}</b></div>
+      <div>🗓 Solicitado em: <b>${r.dt}</b></div>
+      <div>📨 Template: <b>${r.template}</b></div>
+      <div>↩️ Fila de retorno: <b>${r.fila||'-'}</b></div>
+      <div>⏰ Agendamento: <b style="color:${r.sched?'var(--acc)':'var(--mut)'}">${r.sched||'imediato'}</b></div>
+      <div>📊 Linhas: <b>${r.lines}</b> · Custo estimado: <b style="color:var(--acc2)">${brl(r.cost)}</b></div>
+      <div>📎 Arquivo: <b>${r.file||'-'}</b></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
+      <button class="btn green sm" style="flex:1;min-width:120px" onclick="downloadReqCsv('${r.id}')">⬇ Baixar CSV</button>
+      ${!done?`<button class="btn sm" style="flex:1;min-width:120px" onclick="markDone('${r.id}');closeReg()">✓ Marcar realizado</button>`:''}
+      <button class="btn ghost sm" style="flex:1;min-width:120px" onclick="closeReg()">Fechar</button>
+    </div>`;
+  $('#regModal').classList.remove('hide');
+};
+window.markDone=id=>{const now=new Date();
+  const dt=fmtDate(now)+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  updReq(id,{status:'Realizado',doneAt:dt});renderSol();};
+function showSolSugg(){if(!$('#solSugg'))return;
+  const qq=($('#solRegFilter').value||'').trim().toUpperCase();
+  const m=getRegs().filter(r=>r.toUpperCase().includes(qq)).slice(0,30);
+  if(!m.length){$('#solSugg').classList.add('hide');return;}
+  $('#solSugg').innerHTML=m.map(r=>`<div onmousedown="pickSolReg('${r}')">${r}</div>`).join('');
+  $('#solSugg').classList.remove('hide');}
+window.pickSolReg=r=>{$('#solRegFilter').value=r;$('#solSugg').classList.add('hide');solPage=1;renderSol();};
+$('#solRegFilter')&&($('#solRegFilter').oninput=()=>{solPage=1;showSolSugg();renderSol();});
+$('#solRegFilter')&&($('#solRegFilter').onfocus=showSolSugg);
+$('#solRegFilter')&&($('#solRegFilter').onblur=()=>setTimeout(()=>$('#solSugg')&&$('#solSugg').classList.add('hide'),150));
+$('#consPer')&&($('#consPer').onchange=renderCons);
+function startOfToday(){const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime();}
+function renderCons(){
+  const per=$('#consPer').value;
+  let lim=0; if(per==='hoje')lim=startOfToday(); else if(per==='60')lim=Date.now()-60*86400000;
+  const reqs=getReqs().filter(e=>e.ts>=lim);
+  const agg={}; let gE=0,gL=0,gC=0;
+  reqs.forEach(e=>{ if(!agg[e.regional])agg[e.regional]={env:0,lin:0,cus:0};
+    agg[e.regional].env++; agg[e.regional].lin+=e.lines; agg[e.regional].cus+=e.cost;
+    gE++; gL+=e.lines; gC+=e.cost; });
+  const rows=Object.entries(agg).map(([r,v])=>({r,...v}));
+  if(!rows.length){$('#consBox').innerHTML='<p class="muted">Nenhuma solicitação no período.</p>';return;}
+  rows.sort((a,b)=>b.cus-a.cus);
+  const csv='regional,solicitacoes,linhas,custo_estimado\r\n'+rows.map(x=>`${x.r},${x.env},${x.lin},${x.cus.toFixed(2)}`).join('\r\n')+`\r\nTOTAL,${gE},${gL},${gC.toFixed(2)}`;
+  const url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  $('#consBox').innerHTML=`
+    <div class="alert ok">Total no período · <b>${gE}</b> solicitações · <b>${gL}</b> linhas · custo estimado <b>${brl(gC)}</b></div>
+    <div style="overflow-x:auto"><table class="map" style="min-width:480px">
+      <thead><tr><th>Regional</th><th>Solicit.</th><th>Linhas</th><th>Custo est.</th></tr></thead>
+      <tbody>${rows.map(x=>`<tr><td><b>${x.r}</b></td><td>${x.env}</td><td>${x.lin}</td><td style="color:var(--acc2)">${brl(x.cus)}</td></tr>`).join('')}
+      <tr style="border-top:2px solid var(--line)"><td><b>TOTAL</b></td><td><b>${gE}</b></td><td><b>${gL}</b></td><td style="color:var(--acc2)"><b>${brl(gC)}</b></td></tr></tbody></table></div>
+    <a href="${url}" download="consolidado_${per}.csv"><button class="btn ghost sm" style="width:100%;margin-top:8px">⬇ Exportar consolidado (CSV)</button></a>`;
+}
+
+// admin: chips de regionais
+function renderChips(sel){$('#tChips').innerHTML=getRegs().map(r=>`<span class="chip ${sel.includes(r)?'on':''}" data-r="${r}">${r}</span>`).join('');
+  $$('#tChips .chip').forEach(c=>c.onclick=()=>c.classList.toggle('on'));}
+$('#tText').addEventListener('input',()=>{const vs=detectVars($('#tText').value);
+  $('#tVars').innerHTML=vs.length?`Variáveis: ${vs.map(v=>'['+v+']').join(' ')}${hasDiaVar($('#tText').value)?' · <b style="color:var(--acc)">tem lembrete (vence) → vai pedir a data</b>':''}`:'';});
+$('#tSave').onclick=()=>{const name=$('#tName').value.trim(),text=$('#tText').value.trim();
+  if(!name||!text){alert('Preencha nome e texto');return;}
+  const regs=$$('#tChips .chip.on').map(c=>c.dataset.r);
+  const tpls=getTpls();const id=$('#editId').value||('t'+Date.now());
+  const ix=tpls.findIndex(t=>t.id===id);
+  const obj={id,name,text,regionais:regs,categoria:$('#tCat').value||'utilitario'};
+  if(ix>=0)tpls[ix]=obj;else tpls.push(obj);
+  setTpls(tpls);clearForm();renderTplList();};
+$('#tClear').onclick=clearForm;
+function clearForm(){$('#editId').value='';$('#tName').value='';$('#tText').value='';$('#tVars').innerHTML='';if($('#tCat'))$('#tCat').value='utilitario';renderChips([]);}
+let tplPage=1; const TPL_P1=6, TPL_PN=15;
+function renderTplList(){let tpls=getTpls();
+  const q=($('#tplSearch')?.value||'').trim().toLowerCase();
+  const rf=($('#tplRegFilter')?.value||'').trim().toUpperCase();
+  if(q)tpls=tpls.filter(t=>t.name.toLowerCase().includes(q)||t.text.toLowerCase().includes(q));
+  if(rf)tpls=tpls.filter(t=>t.regionais.some(r=>r.toUpperCase().includes(rf)));
+  const total=tpls.length;
+  const pages = total<=TPL_P1 ? 1 : 1+Math.ceil((total-TPL_P1)/TPL_PN);
+  if(tplPage>pages)tplPage=pages; if(tplPage<1)tplPage=1;
+  let start,count;
+  if(tplPage<=1){start=0;count=TPL_P1;} else {start=TPL_P1+(tplPage-2)*TPL_PN;count=TPL_PN;}
+  const slice=tpls.slice(start,start+count);
+  $('#tplList').innerHTML=total?slice.map(t=>{
+    const vs=detectVars(t.text);
+    return `<div class="tplitem" onclick="openTplDetail('${t.id}')">
+      <div class="name">${t.name}</div>
+      <div class="vars">${vs.map(v=>'['+v+']').join(' ')}${hasDiaVar(t.text)?' · lembrete':''} · <span style="color:${t.categoria==='marketing'?'var(--warn)':'var(--acc2)'}">${catLabel(t.categoria)} ${brl(custoCat(t.categoria))}</span></div>
+      <div>${t.regionais.length?fewPillsT(t.regionais):'<span class="pill" style="border-color:var(--warn);color:#ffb3a8">não liberado</span>'}</div>
+      <div class="tap">▸ toque para ver e editar</div>
+    </div>`;
+  }).join(''):'<p class="muted">'+((q||rf)?'Nenhum template encontrado.':'Nenhum template ainda. Cadastre acima.')+'</p>';
+  if($('#tplFormCard'))$('#tplFormCard').classList.toggle('hide',tplPage>1);
+  if($('#tplPager')){
+    $('#tplPager').innerHTML = pages>1?`<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
+      <button class="btn ghost sm" ${tplPage<=1?'disabled':''} onclick="tplGo(${tplPage-1})">‹ Anterior</button>
+      <span class="muted">Página ${tplPage} de ${pages} · ${total} templates</span>
+      <button class="btn ghost sm" ${tplPage>=pages?'disabled':''} onclick="tplGo(${tplPage+1})">Próxima ›</button></div>`
+      : (total>0?`<div class="muted" style="text-align:center">${total} template(s)</div>`:'');
+  }
+}
+  window.tplGo=p=>{tplPage=p;renderTplList();};
+function fewPillsT(arr){const show=arr.slice(0,3).map(x=>`<span class="pill on">${x}</span>`).join('');
+  const extra=arr.length>3?`<span class="pill">+${arr.length-3}</span>`:'';return show+extra;}
+window.openTplDetail=id=>{const t=getTpls().find(x=>x.id===id);if(!t)return;
+  const vs=detectVars(t.text);
+  $('#regModalBody').innerHTML=`<h3>${t.name}</h3>
+    <div class="muted" style="margin-bottom:8px"><span style="color:${t.categoria==='marketing'?'var(--warn)':'var(--acc2)'}">${catLabel(t.categoria)} · ${brl(custoCat(t.categoria))}/envio</span> · Variáveis: ${vs.map(v=>'['+v+']').join(' ')}${hasDiaVar(t.text)?' · lembrete':''}</div>
+    <div class="preview">${t.text.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
+    <div style="margin-top:12px"><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px">Liberado para (${t.regionais.length})</div>
+      <div style="margin-top:4px">${t.regionais.length?t.regionais.map(r=>`<span class="pill on">${r}</span>`).join(''):'<span class="pill" style="border-color:var(--warn);color:#ffb3a8">nenhuma regional</span>'}</div></div>
+    <div style="display:flex;gap:8px;margin-top:18px">
+      <button class="btn ghost sm" style="flex:1" onclick="editTpl('${t.id}')">Editar</button>
+      <button class="btn danger sm" style="flex:1" onclick="delTpl('${t.id}')">Excluir</button>
+      <button class="btn sm" style="flex:1" onclick="closeReg()">Fechar</button></div>`;
+  $('#regModal').classList.remove('hide');
+};
+$('#tplSearch')&&($('#tplSearch').oninput=()=>{tplPage=1;renderTplList();});
+$('#tplRegFilter')&&($('#tplRegFilter').oninput=()=>{tplPage=1;showRegSugg();renderTplList();});
+$('#tplRegFilter')&&($('#tplRegFilter').onfocus=showRegSugg);
+$('#tplRegFilter')&&($('#tplRegFilter').onblur=()=>setTimeout(()=>$('#regSugg')&&$('#regSugg').classList.add('hide'),150));
+window.editTpl=id=>{const t=getTpls().find(x=>x.id===id);if(!t)return;
+  closeReg();tplPage=1;if($('#tplFormCard'))$('#tplFormCard').classList.remove('hide');
+  $('#editId').value=t.id;$('#tName').value=t.name;$('#tText').value=t.text;$('#tCat').value=t.categoria||'utilitario';renderChips(t.regionais);
+  $('#tText').dispatchEvent(new Event('input'));window.scrollTo(0,0);};
+window.delTpl=id=>{if(!confirm('Excluir este template?'))return;setTpls(getTpls().filter(t=>t.id!==id));closeReg();renderTplList();};
+function populateTplFilter(){/* sugestões geradas ao digitar */}
+function showRegSugg(){
+  if(!$('#regSugg'))return;
+  const q=($('#tplRegFilter').value||'').trim().toUpperCase();
+  const matches=getRegs().filter(r=>r.toUpperCase().includes(q)).slice(0,30);
+  if(!matches.length){$('#regSugg').classList.add('hide');return;}
+  $('#regSugg').innerHTML=matches.map(r=>`<div onmousedown="pickReg('${r}')">${r}</div>`).join('');
+  $('#regSugg').classList.remove('hide');
+}
+window.pickReg=r=>{$('#tplRegFilter').value=r;$('#regSugg').classList.add('hide');tplPage=1;renderTplList();};
+let regPage=1; const REG_P1=9, REG_PN=15;
+function renderRegTab(){const tpls=getTpls(),filas=getFilas(),users=getUsers();
+  populateTplFilter();
+  const fewPills=(arr)=>{const show=arr.slice(0,3).map(x=>`<span class="pill on">${x}</span>`).join('');
+    const extra=arr.length>3?`<span class="pill">+${arr.length-3}</span>`:'';return arr.length?show+extra:'<span class="muted">—</span>';};
+  const q=($('#regSearch')?.value||'').trim().toUpperCase();
+  const all=q?getRegs().filter(r=>r.toUpperCase().includes(q)):getRegs();
+  const total=all.length;
+  const pages = total<=REG_P1 ? 1 : 1+Math.ceil((total-REG_P1)/REG_PN);
+  if(regPage>pages)regPage=pages; if(regPage<1)regPage=1;
+  let start,count; if(regPage<=1){start=0;count=REG_P1;}else{start=REG_P1+(regPage-2)*REG_PN;count=REG_PN;}
+  const slice=all.slice(start,start+count);
+  $('#regList').innerHTML=total?slice.map(r=>{
+    const myT=tpls.filter(t=>t.regionais.includes(r));
+    const myF=filas.filter(f=>(f.regionais||[]).includes(r));
+    const myU=users.filter(u=>u.role==='regional'&&u.regional===r);
+    return `<div class="tplitem" onclick="openReg('${r}')">
+      <div class="name">${r}</div>
+      <div class="cnt"><span>Templates <b>${myT.length}</b></span><span>Filas <b>${myF.length}</b></span><span>Acessos <b>${myU.length}</b></span></div>
+      <div>${fewPills(myT.map(t=>t.name))}</div>
+      <div class="tap">▸ toque para ver tudo e editar</div>
+    </div>`;}).join(''):'<p class="muted">'+(q?'Nenhuma regional encontrada.':'Nenhuma regional cadastrada.')+'</p>';
+  if($('#regFormCard'))$('#regFormCard').classList.toggle('hide',regPage>1);
+  if($('#regPager')){
+    $('#regPager').innerHTML = pages>1?`<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
+      <button class="btn ghost sm" ${regPage<=1?'disabled':''} onclick="regGoP(${regPage-1})">‹ Anterior</button>
+      <span class="muted">Página ${regPage} de ${pages} · ${total} regionais</span>
+      <button class="btn ghost sm" ${regPage>=pages?'disabled':''} onclick="regGoP(${regPage+1})">Próxima ›</button></div>`
+      : (total>0?`<div class="muted" style="text-align:center">${total} regional(is)</div>`:'');
+  }
+}
+window.regGoP=p=>{regPage=p;renderRegTab();};
+$('#regSearch')&&($('#regSearch').oninput=()=>{regPage=1;renderRegTab();});
+window.openReg=r=>{
+  const tpls=getTpls().filter(t=>t.regionais.includes(r));
+  const filas=getFilas().filter(f=>(f.regionais||[]).includes(r));
+  const users=getUsers().filter(u=>u.role==='regional'&&u.regional===r);
+  const blk=(label,items,empty)=>`<div style="margin-top:12px"><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.4px">${label} (${items.length})</div>
+    <div style="margin-top:4px">${items.length?items.map(x=>`<span class="pill on">${x}</span>`).join(''):'<span class="muted">'+empty+'</span>'}</div></div>`;
+  $('#regModalBody').innerHTML=`<h3>${r}</h3>
+    ${blk('Templates liberados',tpls.map(t=>t.name),'— nenhum —')}
+    ${blk('Filas de retorno',filas.map(f=>f.name),'— nenhuma —')}
+    ${blk('Acessos (logins)',users.map(u=>u.user),'— nenhum —')}
+    <div style="display:flex;gap:8px;margin-top:18px">
+      <button class="btn ghost sm" style="flex:1" onclick="editReg('${r}')">Renomear</button>
+      <button class="btn danger sm" style="flex:1" onclick="delReg('${r}')">Remover</button>
+      <button class="btn sm" style="flex:1" onclick="closeReg()">Fechar</button>
+    </div>`;
+  $('#regModal').classList.remove('hide');
+};
+window.closeReg=()=>$('#regModal').classList.add('hide');
+$('#regModal').onclick=e=>{if(e.target.id==='regModal')closeReg();};
+$('#regAdd').onclick=()=>{const n=$('#newReg').value.trim().toUpperCase();if(!n)return;
+  const rs=getRegs();if(!rs.includes(n)){rs.push(n);setRegs(rs);}$('#newReg').value='';renderRegTab();};
+window.delReg=r=>{if(!confirm('Remover a regional '+r+'? (não apaga templates/filas/acessos já ligados)'))return;
+  setRegs(getRegs().filter(x=>x!==r));closeReg();renderRegTab();};
+window.editReg=old=>{
+  const nv=(prompt('Novo nome da regional:',old)||'').trim().toUpperCase();
+  if(!nv||nv===old)return;
+  if(getRegs().includes(nv)){alert('Já existe uma regional com esse nome');return;}
+  setRegs(getRegs().map(x=>x===old?nv:x));
+  // cascata: templates, filas, acessos e solicitações
+  setTpls(getTpls().map(t=>({...t,regionais:t.regionais.map(x=>x===old?nv:x)})));
+  setFilas(getFilas().map(f=>({...f,regionais:(f.regionais||[]).map(x=>x===old?nv:x)})));
+  setUsers(getUsers().map(u=>u.regional===old?{...u,regional:nv}:u));
+  setReqs(getReqs().map(q=>q.regional===old?{...q,regional:nv}:q));
+  closeReg();renderRegTab();
+};
+function renderAdmin(){renderChips([]);populateTplFilter();renderTplList();}
+
+// regional
+let rSelTpl=null;
+function renderRegional(){const my=getTpls().filter(t=>t.regionais.includes(regional));
+  rSelTpl=null;$('#rTplPrev').innerHTML='';$('#rUpload').classList.add('hide');$('#rOut').innerHTML='';
+  if(!my.length){$('#rNoTpl').textContent='Nenhum template liberado pra sua regional ainda. Fale com o administrador.';$('#rTplGrid').innerHTML='';}
+  else{$('#rNoTpl').textContent='';renderRTpls();}
+  const filas=filasDe(regional);
+  $('#rFila').innerHTML='<option value="">— selecione a fila —</option>'+filas.map(f=>`<option>${f.name}</option>`).join('');
+  histPage=1;renderHistLast();$('#hist60box').innerHTML='';
+}
+function renderRTpls(){
+  let my=getTpls().filter(t=>t.regionais.includes(regional));
+  const q=($('#rSearch')?.value||'').trim().toLowerCase();
+  if(q)my=my.filter(t=>t.name.toLowerCase().includes(q)||t.text.toLowerCase().includes(q));
+  $('#rTplGrid').innerHTML=my.length?my.map(t=>{const vs=detectVars(t.text);
+    return `<div class="tplcard ${rSelTpl===t.id?'sel':''}" onclick="selTpl('${t.id}')">
+      <div class="tn">${t.name}</div>
+      <div class="tv">${vs.map(v=>'['+v+']').join(' ')}${hasDiaVar(t.text)?' · lembrete':''}</div></div>`;}).join('')
+    :'<p class="muted">Nenhum template encontrado.</p>';
+}
+window.closeTplPrev=()=>{rSelTpl=null;renderRTpls();$('#rTplPrev').innerHTML='';$('#rUpload').classList.add('hide');$('#rOut').innerHTML='';SHEET=null;$('#fname').textContent='';$('#fileinfo').textContent='';};
+window.selTpl=id=>{
+  if(rSelTpl===id){closeTplPrev();return;}   // clicar de novo no mesmo template fecha a amostra
+  rSelTpl=id;const t=getTpls().find(x=>x.id===id);
+  renderRTpls();$('#rOut').innerHTML='';SHEET=null;$('#fname').textContent='';$('#fileinfo').textContent='';
+  if(!t){$('#rUpload').classList.add('hide');$('#rTplPrev').innerHTML='';return;}
+  const vs=detectVars(t.text);
+  $('#rTplPrev').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+      <label class="fld" style="margin:0">Mensagem do template <b style="color:var(--ink)">${t.name}</b> · <span style="color:${t.categoria==='marketing'?'var(--warn)':'var(--acc2)'}">${catLabel(t.categoria)} ${brl(custoCat(t.categoria))}/envio</span></label>
+      <button class="btn ghost sm" style="padding:4px 10px" onclick="closeTplPrev()">✕ fechar</button></div>
+    <div class="preview">${t.text.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
+    <p class="muted" style="margin-top:6px">Variáveis: ${vs.map(v=>'['+v+']').join(' ')}${hasDiaVar(t.text)?' · <b style="color:var(--acc)">lembrete (vai pedir a data de hoje)</b>':''}</p>`;
+  $('#rUpload').classList.remove('hide');
+  $('#dateBox').classList.toggle('hide',!hasDiaVar(t.text));};
+$('#rSearch')&&($('#rSearch').oninput=renderRTpls);
+function myReqs(){return getReqs().filter(r=>r.regional===regional);}
+let histPage=1; const HIST_PS=5;
+function renderHistLast(){const all=myReqs();const total=all.length;
+  const pages=Math.max(1,Math.ceil(total/HIST_PS));
+  if(histPage>pages)histPage=pages; if(histPage<1)histPage=1;
+  const slice=all.slice((histPage-1)*HIST_PS,histPage*HIST_PS);
+  $('#histLast').innerHTML = total? reqTable(slice) : '<p class="muted">Nenhuma solicitação ainda.</p>';
+  if($('#histPager')){
+    $('#histPager').innerHTML = pages>1?`<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
+      <button class="btn ghost sm" ${histPage<=1?'disabled':''} onclick="histGo(${histPage-1})">‹ Anterior</button>
+      <span class="muted">Página ${histPage} de ${pages} · ${total}</span>
+      <button class="btn ghost sm" ${histPage>=pages?'disabled':''} onclick="histGo(${histPage+1})">Próxima ›</button></div>`:'';
+  }
+}
+window.histGo=p=>{histPage=p;renderHistLast();};
+function reqTable(rows){
+  return `<div style="overflow-x:auto"><table class="map" style="min-width:600px">
+    <thead><tr><th>Solicitado</th><th>Template</th><th>Linhas</th><th>Custo</th><th>Fila</th><th>Agenda</th><th>Status</th></tr></thead>
+    <tbody>${rows.map(e=>{const done=e.status==='Realizado';
+      return `<tr>
+      <td style="white-space:nowrap">${e.dt}</td><td>${e.template}</td>
+      <td><b>${e.lines}</b></td><td style="color:var(--acc2)">${brl(e.cost)}</td>
+      <td style="color:var(--mut)">${e.fila||'-'}</td>
+      <td style="color:var(--mut);white-space:nowrap">${e.sched||'imediato'}</td>
+      <td><span class="pill ${done?'on':''}" style="${done?'':'border-color:var(--acc);color:var(--acc)'}">${e.status}${done&&e.doneAt?' '+e.doneAt:''}</span></td></tr>`;}).join('')}</tbody></table></div>`;}
+$('#hist60').onclick=()=>{
+  const lim=Date.now()-60*86400000;
+  const h=myReqs().filter(e=>e.ts>=lim);
+  if(!h.length){$('#hist60box').innerHTML='<p class="muted" style="margin-top:10px">Sem solicitações nos últimos 60 dias.</p>';return;}
+  const csv='data_hora,template,linhas,custo,fila,agenda,status\r\n'+h.map(e=>`${e.dt},${e.template},${e.lines},${e.cost.toFixed(2)},${(e.fila||'').replace(/,/g,' ')},${e.sched||'imediato'},${e.status}`).join('\r\n');
+  const url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download='solicitacoes_'+regional.toLowerCase().replace(/\./g,'')+'_60dias.csv';
+  document.body.appendChild(a);a.click();a.remove();
+  const totC=h.reduce((s,e)=>s+e.cost,0);
+  $('#hist60box').innerHTML=`<div class="alert ok" style="margin-top:10px">Baixado: <b>${h.length}</b> solicitações dos últimos 60 dias · custo estimado <b>${brl(totC)}</b></div>`;
+};
+$('#schedOn').onchange=e=>$('#schedAt').classList.toggle('hide',!e.target.checked);
+$('#drop').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{const f=e.target.files[0];if(!f)return;$('#fname').textContent=f.name;
+  readFile(f,(err,info)=>{if(err){$('#fileinfo').innerHTML='<span style="color:var(--warn)">Erro: '+err.message+'</span>';return;}
+    const typed=Object.values(COLT).filter(Boolean).length;
+    $('#fileinfo').innerHTML=`Cabeçalho linha ${info.hr+1} · <b>${info.rows}</b> registros · ${typed} colunas identificadas`;});};
+['dragover','dragenter'].forEach(ev=>$('#drop').addEventListener(ev,e=>{e.preventDefault();}));
+$('#drop').addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f){$('#file').files=e.dataTransfer.files;$('#fname').textContent=f.name;$('#file').onchange({target:{files:[f]}});}});
+$('#rGen').onclick=()=>{const t=getTpls().find(x=>x.id===rSelTpl);
+  if(!t){alert('Escolha um template');return;}if(!SHEET){alert('Suba a planilha');return;}
+  const fila=$('#rFila').value;
+  if(!fila){alert('Escolha a fila de retorno');return;}
+  let sched='';
+  if($('#schedOn').checked){const sv=$('#schedAt').value;
+    if(!sv){alert('Informe a data/hora do agendamento');return;}
+    const sd=new Date(sv);sched=fmtDate(sd)+' '+String(sd.getHours()).padStart(2,'0')+':'+String(sd.getMinutes()).padStart(2,'0');}
+  let hoje=null;
+  if(hasDiaVar(t.text)){const dv=$('#today').value;if(!dv){$('#rOut').innerHTML='<div class="alert warn">Esse template tem lembrete "vence". Informe a data de hoje.</div>';return;}
+    const[y,mo,d]=dv.split('-').map(Number);hoje=new Date(y,mo-1,d);}
+  const res=generate(t.text,hoje);
+  if(res.err){$('#rOut').innerHTML='<div class="alert warn">'+res.err+'</div>';return;}
+  if(!res.out.length){$('#rOut').innerHTML='<div class="alert warn">Nenhuma linha gerada (sem telefone válido?).</div>';return;}
+  let prev=t.text;res.mapping.forEach((m,i)=>{const v=res.out[0][i+1];
+    prev=prev.split(`{{${m.n}}}`).join(v).split(`[${m.n}]`).join(v);});
+  const csv=toCSV(res.header,res.out);
+  const url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  const reg=regional.toLowerCase().replace(/\./g,'');const stamp=new Date().toISOString().slice(0,10);
+  const fn=`${t.name}_${reg}_${stamp}.csv`;
+  const custo=res.out.length*custoCat(t.categoria);
+  const now=new Date();
+  const dt=fmtDate(now)+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  // cria a SOLICITAÇÃO (vai pro admin)
+  addReq({id:'r'+now.getTime(),ts:now.getTime(),dt,regional,user:currentUser,template:t.name,file:($('#fname').textContent||''),
+    lines:res.out.length,cost:custo,fila,sched,status:'Solicitado',fn,csv});
+  histPage=1;renderHistLast();
+  const dks=Object.keys(res.dc).sort((a,b)=>a.split('/').reverse().join().localeCompare(b.split('/').reverse().join()));
+  const bk=dks.length?`<div style="font-size:13px;margin-top:8px">${dks.map(d=>`<div style="display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:3px 0"><span>${d}</span><b style="color:var(--acc)">${res.dc[d]}</b></div>`).join('')}</div>`:'';
+  $('#rOut').innerHTML=`<div class="card"><div class="alert ok">✅ Solicitação enviada ao administrador — aguardando disparo.${sched?' Agendada para <b>'+sched+'</b>.':''}<br>Fila de retorno: <b>${fila}</b></div>
+    <h2>Prévia (1º registro)</h2><div class="preview">${prev.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
+    <div class="stats">
+      <div class="stat"><div class="n">${res.origem}</div><div class="l">Linhas na planilha</div></div>
+      <div class="stat"><div class="n">${res.out.length}</div><div class="l">Envios (nº únicos)</div></div>
+      <div class="stat"><div class="n" style="color:var(--acc2)">${brl(custo)}</div><div class="l">Custo aproximado</div></div>
+      <div class="stat"><div class="n">${res.dup}</div><div class="l">Repetidos removidos</div></div>
+    </div>
+    <div class="muted" style="margin:2px 0 8px"><b>Obs:</b> o valor é aproximado. O sistema remove números repetidos (ex: frota — mesmo telefone em vários veículos), pois o Meta não permite 2 envios pro mesmo número no disparo. ${res.out.length} números únicos × ${brl(custoCat(t.categoria))} (${catLabel(t.categoria)}) = <b style="color:var(--acc2)">${brl(custo)}</b>${res.dup>0?` · ${res.dup} repetido(s) removido(s)`:''}</div>
+    ${bk}</div>`;
+};
+
+// ---------- seed de demonstração (recarrega quando a versão muda) ----------
+const SEED_V='3';
+if(getUsers().length===0 || DB.get('agv_seed_v',null)!==SEED_V){
+  setUsers([
+    {user:'admin',pass:'admin',role:'admin'},
+    {user:'mg70',pass:'1234',role:'regional',regional:'MG.70'},
+    {user:'ba25',pass:'1234',role:'regional',regional:'BA.25'},
+    {user:'mg132',pass:'1234',role:'regional',regional:'MG.132'},
+    {user:'se05',pass:'1234',role:'regional',regional:'SE.05'},
+    {user:'mg113',pass:'1234',role:'regional',regional:'MG.113'},
+    {user:'sp',pass:'1234',role:'regional',regional:'SP'},
+  ]);
+  setFilas([
+    {name:'Retorno Cobrança',regionais:['MG.70','BA.25','MG.132','MG.113','SP']},
+    {name:'Retorno Reativação',regionais:['RJ.04','MG.56']},
+    {name:'Atendimento Geral',regionais:getRegs()},
+    {name:'Retorno São João',regionais:['BA.25','SE.05']},
+  ]);
+  const T=(n,regs,text,cat)=>({id:'t'+Math.random().toString(36).slice(2,8),name:n,regionais:regs,text,categoria:cat||'utilitario'});
+  setTpls([
+    T('lembrete_vence',['MG.70','BA.25','MG.132'],`Universo AGV\nOi, [1]! 😊\nSó passando pra lembrar que seu pagamento vence [2]!\n🚗 Placa: [3]\n💵 Valor: R$ [4]\n📆 Vencimento: [5]\n📄 Pague com a chave Pix 👇\n[6]\n📄 Link do boleto 👇\n[7]\n✅ Já realizou o pagamento?`,'utilitario'),
+    T('sao_joao',['BA.25','SE.05'],`Universo AGV\nOi, [1]! 🌽🎉\nCom as festas de São João chegando, lembramos que o pagamento da sua proteção vence em [2]! 😊\n🚗 Placa: [3]\n💵 Valor: R$ [4]\n📆 Vencimento: [5]\n📄 Pix 👇\n[6]\n📄 Boleto 👇\n[7]\n🔥 Aproveite o São João protegido!`,'marketing'),
+    T('pendente',['MG.113','MG.70'],`Oi, [1]!👋\nSeu pagamento está PENDENTE!⚠️\n🚗 Placa: [2]\n💵 Valor: [3]\n📆 Vencimento: [4]\n🔑Chave Pix👇:\n[5]\n📄 Link do Boleto👇\n[6]\nDúvidas? Estamos à disposição! 💬`,'utilitario'),
+    T('inadimplente',['SP','MG.97'],`Universo AGV\nOlá, [1]! 👋\nIdentificamos uma PENDÊNCIA DE PAGAMENTO ⚠️\n💰 Valor: R$ [2]\n🚗 Veículo: [3]\n⚠️ Sua cobertura está TEMPORARIAMENTE SUSPENSA.\n💬 Precisa de ajuda?`,'utilitario'),
+    T('reativacao',['RJ.04','MG.56'],`Olá, [1]! 👋\nUniverso AGV.\nSua proteção está INATIVA.\n📋 Placa: [2]\nQue tal voltar a ficar protegido? Temos condições especiais! Responda SIM. 🚗✅`,'marketing'),
+  ]);
+  const mkReq=(daysAgo,reg,user,tpl,lines,fila,status,sched)=>{
+    const ts=Date.now()-daysAgo*86400000;const d=new Date(ts);
+    const dt=fmtDate(d)+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    const tplObj=getTpls().find(x=>x.name===tpl);const rate=custoCat(tplObj?tplObj.categoria:'utilitario');
+    return {id:'r'+ts+Math.random().toString(36).slice(2,5),ts,dt,regional:reg,user,template:tpl,
+      file:tpl+'_'+reg.toLowerCase().replace('.','')+'.xlsx',lines,cost:lines*rate,
+      fila,sched:sched||'',status,doneAt:status==='Realizado'?dt:'',fn:tpl+'.csv',csv:''};
+  };
+  const reqList=[
+    mkReq(0,'BA.25','ba25','sao_joao',1738,'Retorno São João','Solicitado',''),
+    mkReq(0,'SE.05','se05','sao_joao',144,'Retorno São João','Solicitado',''),
+    mkReq(0,'SP','sp','inadimplente',62,'Retorno Cobrança','Solicitado',''),
+    mkReq(0,'MG.132','mg132','lembrete_vence',257,'Retorno Cobrança','Solicitado','16/06/2026 14:00'),
+    mkReq(1,'MG.113','mg113','pendente',304,'Retorno Cobrança','Realizado',''),
+    mkReq(5,'BA.25','ba25','lembrete_vence',697,'Retorno Cobrança','Realizado',''),
+  ];
+  // MG.70: 18 já REALIZADAS + 5 pendentes (pra testar paginação 5/página)
+  for(let i=0;i<18;i++){
+    const tpl=i%2===0?'lembrete_vence':'pendente';
+    reqList.unshift(mkReq(i+2,'MG.70','mg70',tpl,120+i*43,'Retorno Cobrança','Realizado',''));
+  }
+  for(let i=0;i<5;i++){
+    const tpl=i%2===0?'pendente':'lembrete_vence';
+    const sched=i===0?'16/06/2026 15:30':'';
+    reqList.unshift(mkReq(0,'MG.70','mg70',tpl,200+i*55,'Retorno Cobrança','Solicitado',sched));
+  }
+  setReqs(reqList);
+  DB.set('agv_seed_v',SEED_V);
+}
+refreshLogin();
+show('login');
+</script>
+</body>
+</html>
