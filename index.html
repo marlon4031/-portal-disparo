@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Portal de Solicitação de Envio em Massa · Security Solidez</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
 <style>
   :root{--bg:#0f1620;--panel:#16202e;--panel2:#1c2939;--line:#2a3a4f;--ink:#e8eef6;
     --mut:#8da3bd;--acc:#f4b740;--acc2:#3ddc97;--vio:#7c5cff;--warn:#ff7a6b;--rad:14px;
@@ -90,22 +92,19 @@
     <h1>Solicitação de Envio em Massa <span class="tag">· Security Solidez</span></h1>
     <div class="who" id="who"></div>
   </div>
-  <div class="demo">⚙ Protótipo de validação — salva neste navegador. Na versão hospedada, login e templates ficam num servidor e cada regional acessa do seu próprio aparelho.</div>
 
   <!-- LOGIN -->
   <div id="login">
     <div class="card">
       <div id="loginNormal">
         <h2 id="loginTitle">Entrar</h2>
-        <div id="firstRun" class="hide"><div class="alert ok" style="margin-top:0">Primeiro acesso — crie a conta de administrador.</div></div>
+        <div id="cfgMissing" class="hide"><div class="alert warn" style="margin-top:0">O portal ainda não está ligado ao Supabase. Preencha o arquivo <code>config.js</code> (veja o README).</div></div>
         <label class="fld">Usuário</label>
         <input type="text" id="luser" autocomplete="username" placeholder="usuário">
         <label class="fld" style="margin-top:10px">Senha</label>
         <input type="password" id="lpass" autocomplete="current-password" placeholder="senha">
         <button class="btn" id="loginGo" style="margin-top:14px">Entrar</button>
         <p class="muted" id="loginMsg" style="margin-top:8px"></p>
-        <button class="btn ghost sm" id="resetBtn" style="width:100%;margin-top:10px">⟳ Limpar dados e recomeçar (demo)</button>
-        <div id="demoHint" class="muted" style="margin-top:12px;font-size:12px;line-height:1.7"></div>
       </div>
       <div id="chgPass" class="hide">
         <h2>Definir nova senha</h2>
@@ -228,7 +227,7 @@
         <select id="uReg"></select>
         <div class="row" style="margin-top:10px">
           <div><label class="fld">Usuário</label><input type="text" id="uUser" placeholder="ex: mg70"></div>
-          <div><label class="fld">Senha</label><input type="text" id="uPass" placeholder="senha"></div>
+          <div><label class="fld">Senha</label><input type="text" id="uPass" placeholder="senha (mín. 6)"></div>
         </div>
         <label class="chk" style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--mut);cursor:pointer">
           <input type="checkbox" id="uMustChange" style="width:auto"> Exigir que o usuário troque a senha no primeiro acesso
@@ -295,29 +294,71 @@
 
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const DEFAULT_REGIONAIS=['MG.56','MG.70','MG.97','MG.113','MG.120','MG.128','MG.129','MG.132','MT','BA.24','BA.25','SE.04','SE.05','SP','PE.07','RJ.04','CE.01'];
-function getRegs(){return DB.get('agv_regionais',DEFAULT_REGIONAIS);}
-function setRegs(r){DB.set('agv_regionais',r);}
 const CUSTOS={utilitario:0.05, marketing:0.33}; // R$ por envio
 function custoCat(cat){return CUSTOS[cat]!=null?CUSTOS[cat]:CUSTOS.utilitario;}
 function catLabel(cat){return cat==='marketing'?'Marketing':'Utilitário';}
 function brl(n){return 'R$ '+n.toFixed(2).replace('.',',');}
 
-// ---------- persistência (localStorage, com fallback memória) ----------
-const mem={};
-const DB={
-  get(k,d){ try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return k in mem?mem[k]:d;} },
-  set(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){mem[k]=v;} }
-};
-function getTpls(){return DB.get('agv_tpls',[]);}
-function setTpls(t){DB.set('agv_tpls',t);}
-function getFilas(){return DB.get('agv_filas',[]).map(f=>typeof f==='string'?{name:f,regionais:[]}:f);}      // [{name, regionais:[]}]
-function setFilas(f){DB.set('agv_filas',f);}
+// ---------- persistência: Supabase (cache em memória, recarregado após cada alteração) ----------
+const CFG=window.PORTAL_CONFIG||{};
+const EMAIL_DOMAIN=CFG.EMAIL_DOMAIN||'disparo.local';
+const BUCKET='planilhas';
+const sb=(CFG.SUPABASE_URL&&CFG.SUPABASE_ANON_KEY&&window.supabase)?window.supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY):null;
+const C={regs:[],tpls:[],filas:[],reqs:[],users:[]};
+function getRegs(){return C.regs;}
+function getTpls(){return C.tpls;}
+function getFilas(){return C.filas;}                 // [{id, name, regionais:[]}]
 function filasDe(reg){return getFilas().filter(f=>f.regionais&&f.regionais.includes(reg));}
-function getReqs(){const lim=Date.now()-60*86400000;return DB.get('agv_reqs',[]).filter(r=>r.ts>=lim);}
-function setReqs(r){DB.set('agv_reqs',r);}
-function addReq(req){const a=getReqs();a.unshift(req);setReqs(a.slice(0,2000));}
-function updReq(id,patch){const a=getReqs();const i=a.findIndex(x=>x.id===id);if(i>=0){Object.assign(a[i],patch);setReqs(a);}}
+function getReqs(){const lim=Date.now()-60*86400000;return C.reqs.filter(r=>r.ts>=lim);}
+function getUsers(){return C.users;}
+function fmtDT(d){return fmtDate(d)+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+const mapTpl=r=>({id:r.id,name:r.nome,text:r.texto,regionais:r.regionais||[],categoria:r.categoria});
+const mapFila=r=>({id:r.id,name:r.nome,regionais:r.regionais||[]});
+const mapUser=p=>({id:p.id,user:p.usuario,role:p.papel,regional:p.regional,mustChange:p.trocar_senha});
+function mapReq(r){const ts=Date.parse(r.criado_em);
+  return {id:r.id,ts,dt:fmtDT(new Date(ts)),regional:r.regional,user:r.usuario,template:r.template,file:r.arquivo,
+    lines:r.linhas,cost:+r.custo,fila:r.fila,sched:r.agendado_para?fmtDT(new Date(r.agendado_para)):'',status:r.status,
+    doneAt:r.realizado_em?fmtDT(new Date(r.realizado_em)):'',fn:r.csv_nome,csvPath:r.csv_path,origPath:r.original_path};}
+function newId(){if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();
+  const b=crypto.getRandomValues(new Uint8Array(16));b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;
+  const h=[...b].map(x=>x.toString(16).padStart(2,'0')).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
+function chk(res){if(res.error)throw res.error;return res.data;}
+async function loadReqs(){
+  const lim=new Date(Date.now()-60*86400000).toISOString();
+  C.reqs=chk(await sb.from('solicitacoes').select('*').gte('criado_em',lim).order('criado_em',{ascending:false}).limit(5000)).map(mapReq);}
+async function loadAll(){
+  const [r,t,f]=await Promise.all([
+    sb.from('regionais').select('nome').order('nome'),
+    sb.from('templates').select('*').order('criado_em'),
+    sb.from('filas').select('*').order('nome')]);
+  C.regs=chk(r).map(x=>x.nome);C.tpls=chk(t).map(mapTpl);C.filas=chk(f).map(mapFila);
+  await loadReqs();
+  C.users=role==='admin'?chk(await sb.from('perfis').select('*').order('usuario')).map(mapUser):[];
+}
+// executa uma alteração, recarrega os dados e redesenha a tela
+async function run(fn,after){
+  document.body.style.cursor='progress';
+  try{await fn();}catch(e){alert('Erro: '+(e&&e.message||e));}
+  try{await loadAll();}catch(e){console.error(e);}
+  document.body.style.cursor='';
+  after&&after();
+}
+async function adminUsuarios(body){
+  const {data,error}=await sb.functions.invoke('admin-usuarios',{body});
+  if(error){let m=error.message;try{const j=await error.context.json();m=j.erro||m;}catch(_){} throw new Error(m);}
+  return data;
+}
+function saveBlob(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}
+// tempo real: novas solicitações / mudança de status
+let rtChan=null,rtTimer=null;
+function subscribeRT(){if(rtChan)return;
+  rtChan=sb.channel('solicitacoes').on('postgres_changes',{event:'*',schema:'public',table:'solicitacoes'},()=>{
+    clearTimeout(rtTimer);rtTimer=setTimeout(async()=>{try{await loadReqs();}catch(e){return;}refreshReqViews();},400);}).subscribe();}
+function unsubscribeRT(){if(rtChan){sb.removeChannel(rtChan);rtChan=null;}}
+function refreshReqViews(){
+  if(role==='admin'){if(!$('#paneSol').classList.contains('hide'))renderSol();if(!$('#paneCons').classList.contains('hide'))renderCons();}
+  else if(role==='regional')renderHistLast();}
 
 // ---------- motor de processamento (testado) ----------
 function stripDigits(s){return (s==null?'':String(s)).replace(/\D/g,'');}
@@ -447,72 +488,65 @@ let role=null, regional=null, currentUser=null;
 function show(id){['login','admin','regional'].forEach(x=>$('#'+x).classList.toggle('hide',x!==id));
   $('#who').innerHTML = role==='admin'?('Admin · <b>'+(currentUser||'')+'</b>'): role==='regional'?('Regional: <b>'+regional+'</b> · usuário <b>'+(currentUser||'')+'</b>'):'';}
 
-// login / usuários
-function getUsers(){return DB.get('agv_users',[]);}
-function setUsers(u){DB.set('agv_users',u);}
-function hasAdmin(){return getUsers().some(u=>u.role==='admin');}
+// login / usuários (Supabase Auth: o "usuário" vira um e-mail interno usuario@EMAIL_DOMAIN)
+function toEmail(u){u=u.trim().toLowerCase();return u.includes('@')?u:u+'@'+EMAIL_DOMAIN;}
 function refreshLogin(){
-  if(!hasAdmin()){ $('#firstRun').classList.remove('hide'); $('#loginTitle').textContent='Criar administrador'; $('#loginGo').textContent='Criar e entrar'; }
-  else { $('#firstRun').classList.add('hide'); $('#loginTitle').textContent='Entrar'; $('#loginGo').textContent='Entrar'; }
-  // dica dos acessos da demo
-  const us=getUsers();const adm=us.find(u=>u.role==='admin');
-  const regs=us.filter(u=>u.role==='regional');
-  if($('#demoHint')){
-    if(adm&&adm.user==='admin'&&adm.pass==='admin'){
-      $('#demoHint').innerHTML='🔑 <b>Acessos de teste</b><br>Admin: <b>admin</b> / <b>admin</b>'+
-        (regs.length?'<br>Regionais (senha <b>1234</b>): '+regs.map(r=>'<b>'+r.user+'</b>').join(', '):'');
-    } else { $('#demoHint').innerHTML=''; }
-  }
+  $('#cfgMissing').classList.toggle('hide',!!sb);
+  $('#chgPass').classList.add('hide');$('#loginNormal').classList.remove('hide');}
+async function enterSession(){
+  const {data:{user}}=await sb.auth.getUser();
+  if(!user){show('login');refreshLogin();return;}
+  const {data:p,error}=await sb.from('perfis').select('*').eq('id',user.id).maybeSingle();
+  if(error||!p){await sb.auth.signOut();show('login');refreshLogin();
+    $('#loginMsg').textContent=error?('Erro ao carregar o perfil: '+error.message):'Este login não tem acesso ao portal. Fale com o administrador.';return;}
+  if(p.trocar_senha){show('login');$('#loginNormal').classList.add('hide');$('#chgPass').classList.remove('hide');
+    $('#np1').value='';$('#np2').value='';$('#npMsg').textContent='';return;}
+  role=p.papel;regional=p.regional||null;currentUser=p.usuario;
+  try{await loadAll();}catch(e){$('#loginMsg').textContent='Erro ao carregar os dados: '+e.message;await sb.auth.signOut();role=null;show('login');return;}
+  subscribeRT();afterLogin();
 }
-$('#loginGo').onclick=()=>{
+$('#loginGo').onclick=async()=>{
+  if(!sb){$('#loginMsg').textContent='Configure o config.js antes de entrar.';return;}
   const u=$('#luser').value.trim(), p=$('#lpass').value;
   if(!u||!p){$('#loginMsg').textContent='Preencha usuário e senha.';return;}
-  if(!hasAdmin()){ // cria admin no 1º acesso
-    setUsers([{user:u,pass:p,role:'admin'}]);
-    role='admin';currentUser=u;afterLogin();return;
-  }
-  const rec=getUsers().find(x=>x.user===u&&x.pass===p);
-  if(!rec){$('#loginMsg').textContent='Usuário ou senha inválidos.';return;}
-  if(rec.mustChange){ pendingUser=rec; $('#loginNormal').classList.add('hide'); $('#chgPass').classList.remove('hide'); $('#np1').value='';$('#np2').value='';$('#npMsg').textContent=''; return; }
-  role=rec.role; regional=rec.regional||null; currentUser=rec.user; afterLogin();
+  $('#loginGo').disabled=true;$('#loginMsg').textContent='Entrando…';
+  const {error}=await sb.auth.signInWithPassword({email:toEmail(u),password:p});
+  $('#loginGo').disabled=false;
+  if(error){$('#loginMsg').textContent=/invalid/i.test(error.message)?'Usuário ou senha inválidos.':('Erro: '+error.message);return;}
+  $('#loginMsg').textContent='';await enterSession();
 };
-let pendingUser=null;
-$('#npGo')&&($('#npGo').onclick=()=>{
+$('#npGo')&&($('#npGo').onclick=async()=>{
   const a=$('#np1').value, b=$('#np2').value;
-  if(!a||a.length<4){$('#npMsg').textContent='A senha precisa ter ao menos 4 caracteres.';return;}
+  if(!a||a.length<6){$('#npMsg').textContent='A senha precisa ter ao menos 6 caracteres.';return;}
   if(a!==b){$('#npMsg').textContent='As senhas não conferem.';return;}
-  if(!pendingUser)return;
-  const users=getUsers();const ix=users.findIndex(x=>x.user===pendingUser.user);
-  if(ix>=0){users[ix].pass=a;users[ix].mustChange=false;setUsers(users);}
-  role=pendingUser.role; regional=pendingUser.regional||null; currentUser=pendingUser.user; pendingUser=null;
-  $('#chgPass').classList.add('hide'); $('#loginNormal').classList.remove('hide');
-  afterLogin();
+  $('#npGo').disabled=true;
+  let {error}=await sb.auth.updateUser({password:a});
+  if(!error)({error}=await sb.rpc('marcar_senha_trocada'));
+  $('#npGo').disabled=false;
+  if(error){$('#npMsg').textContent='Erro: '+error.message;return;}
+  $('#chgPass').classList.add('hide');$('#loginNormal').classList.remove('hide');
+  await enterSession();
 });
 function afterLogin(){
   $('#luser').value='';$('#lpass').value='';$('#loginMsg').textContent='';
   if(role==='admin'){show('admin');renderAdmin();}
   else{show('regional');renderRegional();}
 }
-$('#adminOut').onclick=$('#regOut').onclick=()=>{role=null;regional=null;pendingUser=null;
-  if($('#chgPass'))$('#chgPass').classList.add('hide');if($('#loginNormal'))$('#loginNormal').classList.remove('hide');
+$('#adminOut').onclick=$('#regOut').onclick=async()=>{unsubscribeRT();if(sb)await sb.auth.signOut();
+  role=null;regional=null;currentUser=null;for(const k in C)C[k]=[];
   show('login');refreshLogin();};
 $('#lpass')&&($('#lpass').onkeydown=e=>{if(e.key==='Enter')$('#loginGo').click();});
 $('#luser')&&($('#luser').onkeydown=e=>{if(e.key==='Enter')$('#loginGo').click();});
-$('#resetBtn')&&($('#resetBtn').onclick=()=>{
-  if(!confirm('Isso apaga todos os dados do portal neste navegador (acessos, templates, filas, solicitações) e recarrega com a demonstração. Continuar?'))return;
-  try{['agv_users','agv_regionais','agv_tpls','agv_filas','agv_reqs','agv_pin'].forEach(k=>localStorage.removeItem(k));}catch(e){}
-  for(const k in mem)delete mem[k];
-  location.reload();
-});
 
-// ACESSOS (admin cria login das regionais)
+// ACESSOS (admin cria login das regionais, via Edge Function admin-usuarios)
 $('#uAdd')&&($('#uAdd').onclick=()=>{
-  const reg=$('#uReg').value, u=$('#uUser').value.trim(), p=$('#uPass').value.trim();
+  const reg=$('#uReg').value, u=$('#uUser').value.trim().toLowerCase(), p=$('#uPass').value.trim();
   if(!u||!p){alert('Preencha usuário e senha');return;}
-  const users=getUsers();
-  if(users.some(x=>x.user===u)){alert('Já existe um usuário com esse nome');return;}
-  users.push({user:u,pass:p,role:'regional',regional:reg,mustChange:$('#uMustChange').checked});setUsers(users);
-  $('#uUser').value='';$('#uPass').value='';$('#uMustChange').checked=false;renderUsr();
+  if(!/^[a-z0-9._-]{2,40}$/.test(u)){alert('Usuário: use só letras minúsculas, números, ponto, hífen ou _ (sem espaço e sem acento).');return;}
+  if(p.length<6){alert('A senha precisa ter ao menos 6 caracteres.');return;}
+  if(getUsers().some(x=>x.user===u)){alert('Já existe um usuário com esse nome');return;}
+  run(()=>adminUsuarios({acao:'criar',usuario:u,senha:p,regional:reg,trocar_senha:$('#uMustChange').checked}),()=>{
+    $('#uUser').value='';$('#uPass').value='';$('#uMustChange').checked=false;renderUsr();});
 });
 function renderUsr(){
   $('#uReg').innerHTML=getRegs().map(r=>`<option>${r}</option>`).join('');
@@ -524,7 +558,9 @@ function renderUsr(){
   $('#usrList').innerHTML=regs.length?regs.map(u=>`<div class="tplitem">
     <div class="name" style="margin-bottom:6px">${u.user}</div>
     <div><span class="pill on">${u.regional}</span>${u.mustChange?'<span class="pill" style="border-color:var(--acc);color:var(--acc)">trocar senha no 1º acesso</span>':''}</div>
-    <button class="btn danger sm" style="width:100%;margin-top:8px" onclick="delUsr('${u.user.replace(/'/g,"\\'")}')">Excluir</button></div>`).join('')
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="btn ghost sm" style="flex:1;min-width:0;padding:7px 4px" onclick="resetUsr('${u.user.replace(/'/g,"\\'")}')">Nova senha</button>
+      <button class="btn danger sm" style="flex:1;min-width:0;padding:7px 4px" onclick="delUsr('${u.user.replace(/'/g,"\\'")}')">Excluir</button></div></div>`).join('')
     :'<p class="muted">'+((q||rf)?'Nenhum acesso encontrado.':'Nenhum acesso de regional criado. Cadastre acima.')+'</p>';
 }
 $('#usrSearch')&&($('#usrSearch').oninput=renderUsr);
@@ -538,7 +574,10 @@ window.pickUsrReg=r=>{$('#usrRegFilter').value=r;$('#usrSugg').classList.add('hi
 $('#usrRegFilter')&&($('#usrRegFilter').oninput=()=>{showUsrSugg();renderUsr();});
 $('#usrRegFilter')&&($('#usrRegFilter').onfocus=showUsrSugg);
 $('#usrRegFilter')&&($('#usrRegFilter').onblur=()=>setTimeout(()=>$('#usrSugg')&&$('#usrSugg').classList.add('hide'),150));
-window.delUsr=user=>{setUsers(getUsers().filter(u=>u.user!==user));renderUsr();};
+window.delUsr=user=>{if(!confirm('Excluir o acesso '+user+'?'))return;run(()=>adminUsuarios({acao:'excluir',usuario:user}),renderUsr);};
+window.resetUsr=user=>{const p=(prompt('Nova senha para '+user+' (mín. 6). Ele vai precisar trocar no próximo acesso.')||'').trim();if(!p)return;
+  if(p.length<6){alert('A senha precisa ter ao menos 6 caracteres.');return;}
+  run(()=>adminUsuarios({acao:'senha',usuario:user,senha:p,trocar_senha:true}),renderUsr);};
 
 // admin tabs
 $('#tabTpl').onclick=()=>{setTab('Tpl');populateTplFilter();renderTplList();};
@@ -555,9 +594,8 @@ function filaChipsRender(sel){sel=sel||[];$('#filaChips').innerHTML=getRegs().ma
   $$('#filaChips .chip').forEach(c=>c.onclick=()=>c.classList.toggle('on'));}
 $('#filaAdd').onclick=()=>{const n=$('#filaName').value.trim();if(!n){alert('Digite o nome da fila');return;}
   const regs=$$('#filaChips .chip.on').map(c=>c.dataset.r);
-  const f=getFilas();const i=f.findIndex(x=>x.name===n);
-  if(i>=0)f[i].regionais=regs;else f.push({name:n,regionais:regs});
-  setFilas(f);$('#filaName').value='';filaChipsRender([]);filaPage=1;renderFilas();};
+  run(async()=>chk(await sb.from('filas').upsert({nome:n,regionais:regs},{onConflict:'nome'})),
+    ()=>{$('#filaName').value='';filaChipsRender([]);filaPage=1;renderFilas();});};
 let filaPage=1; const FILA_P1=12, FILA_PN=18;
 function renderFilas(){let f=getFilas();filaChipsRender($$('#filaChips .chip.on').map(c=>c.dataset.r));
   const q=($('#filaSearch')?.value||'').trim().toLowerCase();
@@ -589,7 +627,7 @@ window.filaGoP=p=>{filaPage=p;renderFilas();};
 window.editFila=name=>{const fl=getFilas().find(x=>x.name===name);if(!fl)return;
   filaPage=1;if($('#filaFormCard'))$('#filaFormCard').classList.remove('hide');
   $('#filaName').value=fl.name;filaChipsRender(fl.regionais||[]);window.scrollTo(0,0);};
-window.delFila=n=>{setFilas(getFilas().filter(x=>x.name!==n));renderFilas();};
+window.delFila=n=>{if(!confirm('Excluir a fila '+n+'?'))return;run(async()=>chk(await sb.from('filas').delete().eq('nome',n)),renderFilas);};
 // busca da fila
 $('#filaSearch')&&($('#filaSearch').oninput=()=>{filaPage=1;renderFilas();});
 function showFilaSugg(){if(!$('#filaSugg'))return;
@@ -649,10 +687,13 @@ window.solGo=p=>{solPage=p;renderSol();};
 function updateSolTimers(){$$('.sol-timer').forEach(el=>{const ts=+el.dataset.ts;const s=slaInfo(ts);
   el.style.borderColor=s.color;el.style.color=s.color;el.textContent='⏱ aguardando há '+s.txt;});}
 setInterval(updateSolTimers,30000);
-window.downloadReqCsv=id=>{const r=getReqs().find(x=>x.id===id);
-  if(!r||!r.csv){alert('Esta solicitação não tem arquivo armazenado (ex: dados de demonstração).');return;}
-  const url=URL.createObjectURL(new Blob(['\ufeff'+r.csv],{type:'text/csv;charset=utf-8'}));
-  const a=document.createElement('a');a.href=url;a.download=r.fn||'disparo.csv';document.body.appendChild(a);a.click();a.remove();};
+async function downloadPath(path,name){
+  if(!path){alert('Esta solicitação não tem arquivo armazenado.');return;}
+  const {data,error}=await sb.storage.from(BUCKET).download(path);
+  if(error){alert('Erro ao baixar: '+error.message);return;}
+  saveBlob(data,name);}
+window.downloadReqCsv=id=>{const r=getReqs().find(x=>x.id===id);if(r)downloadPath(r.csvPath,r.fn||'disparo.csv');};
+window.downloadReqOrig=id=>{const r=getReqs().find(x=>x.id===id);if(r)downloadPath(r.origPath,r.file||'planilha');};
 window.openSolDetail=id=>{const r=getReqs().find(x=>x.id===id);if(!r)return;
   const done=r.status==='Realizado';const sla=!done?slaInfo(r.ts):null;
   $('#regModalBody').innerHTML=`<h3>${r.regional} · ${r.template}</h3>
@@ -668,14 +709,13 @@ window.openSolDetail=id=>{const r=getReqs().find(x=>x.id===id);if(!r)return;
     </div>
     <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
       <button class="btn green sm" style="flex:1;min-width:120px" onclick="downloadReqCsv('${r.id}')">⬇ Baixar CSV</button>
+      ${r.origPath?`<button class="btn ghost sm" style="flex:1;min-width:120px" onclick="downloadReqOrig('${r.id}')">⬇ Planilha original</button>`:''}
       ${!done?`<button class="btn sm" style="flex:1;min-width:120px" onclick="markDone('${r.id}');closeReg()">✓ Marcar realizado</button>`:''}
       <button class="btn ghost sm" style="flex:1;min-width:120px" onclick="closeReg()">Fechar</button>
     </div>`;
   $('#regModal').classList.remove('hide');
 };
-window.markDone=id=>{const now=new Date();
-  const dt=fmtDate(now)+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
-  updReq(id,{status:'Realizado',doneAt:dt});renderSol();};
+window.markDone=id=>run(async()=>chk(await sb.from('solicitacoes').update({status:'Realizado',realizado_em:new Date().toISOString()}).eq('id',id)),renderSol);
 function showSolSugg(){if(!$('#solSugg'))return;
   const qq=($('#solRegFilter').value||'').trim().toUpperCase();
   const m=getRegs().filter(r=>r.toUpperCase().includes(qq)).slice(0,30);
@@ -718,11 +758,10 @@ $('#tText').addEventListener('input',()=>{const vs=detectVars($('#tText').value)
 $('#tSave').onclick=()=>{const name=$('#tName').value.trim(),text=$('#tText').value.trim();
   if(!name||!text){alert('Preencha nome e texto');return;}
   const regs=$$('#tChips .chip.on').map(c=>c.dataset.r);
-  const tpls=getTpls();const id=$('#editId').value||('t'+Date.now());
-  const ix=tpls.findIndex(t=>t.id===id);
-  const obj={id,name,text,regionais:regs,categoria:$('#tCat').value||'utilitario'};
-  if(ix>=0)tpls[ix]=obj;else tpls.push(obj);
-  setTpls(tpls);clearForm();renderTplList();};
+  const id=$('#editId').value;
+  const row={nome:name,texto:text,regionais:regs,categoria:$('#tCat').value||'utilitario'};
+  run(async()=>chk(id?await sb.from('templates').update(row).eq('id',id):await sb.from('templates').insert(row)),
+    ()=>{clearForm();renderTplList();});};
 $('#tClear').onclick=clearForm;
 function clearForm(){$('#editId').value='';$('#tName').value='';$('#tText').value='';$('#tVars').innerHTML='';if($('#tCat'))$('#tCat').value='utilitario';renderChips([]);}
 let tplPage=1; const TPL_P1=6, TPL_PN=15;
@@ -779,7 +818,7 @@ window.editTpl=id=>{const t=getTpls().find(x=>x.id===id);if(!t)return;
   closeReg();tplPage=1;if($('#tplFormCard'))$('#tplFormCard').classList.remove('hide');
   $('#editId').value=t.id;$('#tName').value=t.name;$('#tText').value=t.text;$('#tCat').value=t.categoria||'utilitario';renderChips(t.regionais);
   $('#tText').dispatchEvent(new Event('input'));window.scrollTo(0,0);};
-window.delTpl=id=>{if(!confirm('Excluir este template?'))return;setTpls(getTpls().filter(t=>t.id!==id));closeReg();renderTplList();};
+window.delTpl=id=>{if(!confirm('Excluir este template?'))return;closeReg();run(async()=>chk(await sb.from('templates').delete().eq('id',id)),renderTplList);};
 function populateTplFilter(){/* sugestões geradas ao digitar */}
 function showRegSugg(){
   if(!$('#regSugg'))return;
@@ -843,20 +882,16 @@ window.openReg=r=>{
 window.closeReg=()=>$('#regModal').classList.add('hide');
 $('#regModal').onclick=e=>{if(e.target.id==='regModal')closeReg();};
 $('#regAdd').onclick=()=>{const n=$('#newReg').value.trim().toUpperCase();if(!n)return;
-  const rs=getRegs();if(!rs.includes(n)){rs.push(n);setRegs(rs);}$('#newReg').value='';renderRegTab();};
+  if(getRegs().includes(n)){$('#newReg').value='';return;}
+  run(async()=>chk(await sb.from('regionais').insert({nome:n})),()=>{$('#newReg').value='';renderRegTab();});};
 window.delReg=r=>{if(!confirm('Remover a regional '+r+'? (não apaga templates/filas/acessos já ligados)'))return;
-  setRegs(getRegs().filter(x=>x!==r));closeReg();renderRegTab();};
+  closeReg();run(async()=>chk(await sb.from('regionais').delete().eq('nome',r)),renderRegTab);};
 window.editReg=old=>{
   const nv=(prompt('Novo nome da regional:',old)||'').trim().toUpperCase();
   if(!nv||nv===old)return;
   if(getRegs().includes(nv)){alert('Já existe uma regional com esse nome');return;}
-  setRegs(getRegs().map(x=>x===old?nv:x));
-  // cascata: templates, filas, acessos e solicitações
-  setTpls(getTpls().map(t=>({...t,regionais:t.regionais.map(x=>x===old?nv:x)})));
-  setFilas(getFilas().map(f=>({...f,regionais:(f.regionais||[]).map(x=>x===old?nv:x)})));
-  setUsers(getUsers().map(u=>u.regional===old?{...u,regional:nv}:u));
-  setReqs(getReqs().map(q=>q.regional===old?{...q,regional:nv}:q));
-  closeReg();renderRegTab();
+  // cascata (templates, filas, acessos e solicitações) feita no banco
+  closeReg();run(async()=>chk(await sb.rpc('renomear_regional',{antigo:old,novo:nv})),renderRegTab);
 };
 function renderAdmin(){renderChips([]);populateTplFilter();renderTplList();}
 
@@ -933,20 +968,21 @@ $('#hist60').onclick=()=>{
 };
 $('#schedOn').onchange=e=>$('#schedAt').classList.toggle('hide',!e.target.checked);
 $('#drop').onclick=()=>$('#file').click();
-$('#file').onchange=e=>{const f=e.target.files[0];if(!f)return;$('#fname').textContent=f.name;
+let CUR_FILE=null;
+$('#file').onchange=e=>{const f=e.target.files[0];if(!f)return;CUR_FILE=f;$('#fname').textContent=f.name;
   readFile(f,(err,info)=>{if(err){$('#fileinfo').innerHTML='<span style="color:var(--warn)">Erro: '+err.message+'</span>';return;}
     const typed=Object.values(COLT).filter(Boolean).length;
     $('#fileinfo').innerHTML=`Cabeçalho linha ${info.hr+1} · <b>${info.rows}</b> registros · ${typed} colunas identificadas`;});};
 ['dragover','dragenter'].forEach(ev=>$('#drop').addEventListener(ev,e=>{e.preventDefault();}));
 $('#drop').addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f){$('#file').files=e.dataTransfer.files;$('#fname').textContent=f.name;$('#file').onchange({target:{files:[f]}});}});
-$('#rGen').onclick=()=>{const t=getTpls().find(x=>x.id===rSelTpl);
+$('#rGen').onclick=async()=>{const t=getTpls().find(x=>x.id===rSelTpl);
   if(!t){alert('Escolha um template');return;}if(!SHEET){alert('Suba a planilha');return;}
   const fila=$('#rFila').value;
   if(!fila){alert('Escolha a fila de retorno');return;}
-  let sched='';
+  let sched='',schedISO=null;
   if($('#schedOn').checked){const sv=$('#schedAt').value;
     if(!sv){alert('Informe a data/hora do agendamento');return;}
-    const sd=new Date(sv);sched=fmtDate(sd)+' '+String(sd.getHours()).padStart(2,'0')+':'+String(sd.getMinutes()).padStart(2,'0');}
+    const sd=new Date(sv);sched=fmtDT(sd);schedISO=sd.toISOString();}
   let hoje=null;
   if(hasDiaVar(t.text)){const dv=$('#today').value;if(!dv){$('#rOut').innerHTML='<div class="alert warn">Esse template tem lembrete "vence". Informe a data de hoje.</div>';return;}
     const[y,mo,d]=dv.split('-').map(Number);hoje=new Date(y,mo-1,d);}
@@ -956,15 +992,24 @@ $('#rGen').onclick=()=>{const t=getTpls().find(x=>x.id===rSelTpl);
   let prev=t.text;res.mapping.forEach((m,i)=>{const v=res.out[0][i+1];
     prev=prev.split(`{{${m.n}}}`).join(v).split(`[${m.n}]`).join(v);});
   const csv=toCSV(res.header,res.out);
-  const url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
   const reg=regional.toLowerCase().replace(/\./g,'');const stamp=new Date().toISOString().slice(0,10);
   const fn=`${t.name}_${reg}_${stamp}.csv`;
   const custo=res.out.length*custoCat(t.categoria);
-  const now=new Date();
-  const dt=fmtDate(now)+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
-  // cria a SOLICITAÇÃO (vai pro admin)
-  addReq({id:'r'+now.getTime(),ts:now.getTime(),dt,regional,user:currentUser,template:t.name,file:($('#fname').textContent||''),
-    lines:res.out.length,cost:custo,fila,sched,status:'Solicitado',fn,csv});
+  // cria a SOLICITAÇÃO (vai pro admin): grava a linha e sobe o CSV gerado + a planilha original
+  const id=newId();
+  const ext=((CUR_FILE&&CUR_FILE.name.match(/\.([a-z0-9]{1,5})$/i))||[,'xlsx'])[1].toLowerCase();
+  const csvPath=`${id}/disparo.csv`, origPath=CUR_FILE?`${id}/original.${ext}`:null;
+  $('#rGen').disabled=true;$('#rOut').innerHTML='<div class="alert ok">Enviando solicitação…</div>';
+  try{
+    chk(await sb.from('solicitacoes').insert({id,regional,usuario:currentUser,template:t.name,arquivo:($('#fname').textContent||''),
+      linhas:res.out.length,custo:+custo.toFixed(2),fila,agendado_para:schedISO,csv_nome:fn,csv_path:csvPath,original_path:origPath}));
+    try{
+      chk(await sb.storage.from(BUCKET).upload(csvPath,new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),{contentType:'text/csv;charset=utf-8'}));
+      if(origPath)chk(await sb.storage.from(BUCKET).upload(origPath,CUR_FILE,{contentType:CUR_FILE.type||'application/octet-stream'}));
+    }catch(upErr){await sb.from('solicitacoes').delete().eq('id',id);throw upErr;}
+  }catch(e){$('#rGen').disabled=false;$('#rOut').innerHTML='<div class="alert warn">Não foi possível enviar a solicitação: '+(e.message||e)+'</div>';return;}
+  $('#rGen').disabled=false;
+  try{await loadReqs();}catch(e){}
   histPage=1;renderHistLast();
   const dks=Object.keys(res.dc).sort((a,b)=>a.split('/').reverse().join().localeCompare(b.split('/').reverse().join()));
   const bk=dks.length?`<div style="font-size:13px;margin-top:8px">${dks.map(d=>`<div style="display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:3px 0"><span>${d}</span><b style="color:var(--acc)">${res.dc[d]}</b></div>`).join('')}</div>`:'';
@@ -980,63 +1025,12 @@ $('#rGen').onclick=()=>{const t=getTpls().find(x=>x.id===rSelTpl);
     ${bk}</div>`;
 };
 
-// ---------- seed de demonstração (recarrega quando a versão muda) ----------
-const SEED_V='3';
-if(getUsers().length===0 || DB.get('agv_seed_v',null)!==SEED_V){
-  setUsers([
-    {user:'admin',pass:'admin',role:'admin'},
-    {user:'mg70',pass:'1234',role:'regional',regional:'MG.70'},
-    {user:'ba25',pass:'1234',role:'regional',regional:'BA.25'},
-    {user:'mg132',pass:'1234',role:'regional',regional:'MG.132'},
-    {user:'se05',pass:'1234',role:'regional',regional:'SE.05'},
-    {user:'mg113',pass:'1234',role:'regional',regional:'MG.113'},
-    {user:'sp',pass:'1234',role:'regional',regional:'SP'},
-  ]);
-  setFilas([
-    {name:'Retorno Cobrança',regionais:['MG.70','BA.25','MG.132','MG.113','SP']},
-    {name:'Retorno Reativação',regionais:['RJ.04','MG.56']},
-    {name:'Atendimento Geral',regionais:getRegs()},
-    {name:'Retorno São João',regionais:['BA.25','SE.05']},
-  ]);
-  const T=(n,regs,text,cat)=>({id:'t'+Math.random().toString(36).slice(2,8),name:n,regionais:regs,text,categoria:cat||'utilitario'});
-  setTpls([
-    T('lembrete_vence',['MG.70','BA.25','MG.132'],`Universo AGV\nOi, [1]! 😊\nSó passando pra lembrar que seu pagamento vence [2]!\n🚗 Placa: [3]\n💵 Valor: R$ [4]\n📆 Vencimento: [5]\n📄 Pague com a chave Pix 👇\n[6]\n📄 Link do boleto 👇\n[7]\n✅ Já realizou o pagamento?`,'utilitario'),
-    T('sao_joao',['BA.25','SE.05'],`Universo AGV\nOi, [1]! 🌽🎉\nCom as festas de São João chegando, lembramos que o pagamento da sua proteção vence em [2]! 😊\n🚗 Placa: [3]\n💵 Valor: R$ [4]\n📆 Vencimento: [5]\n📄 Pix 👇\n[6]\n📄 Boleto 👇\n[7]\n🔥 Aproveite o São João protegido!`,'marketing'),
-    T('pendente',['MG.113','MG.70'],`Oi, [1]!👋\nSeu pagamento está PENDENTE!⚠️\n🚗 Placa: [2]\n💵 Valor: [3]\n📆 Vencimento: [4]\n🔑Chave Pix👇:\n[5]\n📄 Link do Boleto👇\n[6]\nDúvidas? Estamos à disposição! 💬`,'utilitario'),
-    T('inadimplente',['SP','MG.97'],`Universo AGV\nOlá, [1]! 👋\nIdentificamos uma PENDÊNCIA DE PAGAMENTO ⚠️\n💰 Valor: R$ [2]\n🚗 Veículo: [3]\n⚠️ Sua cobertura está TEMPORARIAMENTE SUSPENSA.\n💬 Precisa de ajuda?`,'utilitario'),
-    T('reativacao',['RJ.04','MG.56'],`Olá, [1]! 👋\nUniverso AGV.\nSua proteção está INATIVA.\n📋 Placa: [2]\nQue tal voltar a ficar protegido? Temos condições especiais! Responda SIM. 🚗✅`,'marketing'),
-  ]);
-  const mkReq=(daysAgo,reg,user,tpl,lines,fila,status,sched)=>{
-    const ts=Date.now()-daysAgo*86400000;const d=new Date(ts);
-    const dt=fmtDate(d)+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-    const tplObj=getTpls().find(x=>x.name===tpl);const rate=custoCat(tplObj?tplObj.categoria:'utilitario');
-    return {id:'r'+ts+Math.random().toString(36).slice(2,5),ts,dt,regional:reg,user,template:tpl,
-      file:tpl+'_'+reg.toLowerCase().replace('.','')+'.xlsx',lines,cost:lines*rate,
-      fila,sched:sched||'',status,doneAt:status==='Realizado'?dt:'',fn:tpl+'.csv',csv:''};
-  };
-  const reqList=[
-    mkReq(0,'BA.25','ba25','sao_joao',1738,'Retorno São João','Solicitado',''),
-    mkReq(0,'SE.05','se05','sao_joao',144,'Retorno São João','Solicitado',''),
-    mkReq(0,'SP','sp','inadimplente',62,'Retorno Cobrança','Solicitado',''),
-    mkReq(0,'MG.132','mg132','lembrete_vence',257,'Retorno Cobrança','Solicitado','16/06/2026 14:00'),
-    mkReq(1,'MG.113','mg113','pendente',304,'Retorno Cobrança','Realizado',''),
-    mkReq(5,'BA.25','ba25','lembrete_vence',697,'Retorno Cobrança','Realizado',''),
-  ];
-  // MG.70: 18 já REALIZADAS + 5 pendentes (pra testar paginação 5/página)
-  for(let i=0;i<18;i++){
-    const tpl=i%2===0?'lembrete_vence':'pendente';
-    reqList.unshift(mkReq(i+2,'MG.70','mg70',tpl,120+i*43,'Retorno Cobrança','Realizado',''));
-  }
-  for(let i=0;i<5;i++){
-    const tpl=i%2===0?'pendente':'lembrete_vence';
-    const sched=i===0?'16/06/2026 15:30':'';
-    reqList.unshift(mkReq(0,'MG.70','mg70',tpl,200+i*55,'Retorno Cobrança','Solicitado',sched));
-  }
-  setReqs(reqList);
-  DB.set('agv_seed_v',SEED_V);
-}
+// ---------- início: retoma a sessão salva, se houver ----------
 refreshLogin();
 show('login');
+if(sb){
+  sb.auth.getSession().then(({data})=>{if(data.session)enterSession();});
+}
 </script>
 </body>
 </html>
