@@ -105,7 +105,6 @@
         <button class="btn" id="loginGo" style="margin-top:14px">Entrar</button>
         <p class="muted" id="loginMsg" style="margin-top:8px"></p>
         <button class="btn ghost sm" id="resetBtn" style="width:100%;margin-top:10px">⟳ Limpar dados e recomeçar (demo)</button>
-        <div id="demoHint" class="muted" style="margin-top:12px;font-size:12px;line-height:1.7"></div>
       </div>
       <div id="chgPass" class="hide">
         <h2>Definir nova senha</h2>
@@ -454,15 +453,6 @@ function hasAdmin(){return getUsers().some(u=>u.role==='admin');}
 function refreshLogin(){
   if(!hasAdmin()){ $('#firstRun').classList.remove('hide'); $('#loginTitle').textContent='Criar administrador'; $('#loginGo').textContent='Criar e entrar'; }
   else { $('#firstRun').classList.add('hide'); $('#loginTitle').textContent='Entrar'; $('#loginGo').textContent='Entrar'; }
-  // dica dos acessos da demo
-  const us=getUsers();const adm=us.find(u=>u.role==='admin');
-  const regs=us.filter(u=>u.role==='regional');
-  if($('#demoHint')){
-    if(adm&&adm.user==='admin'&&adm.pass==='admin'){
-      $('#demoHint').innerHTML='🔑 <b>Acessos de teste</b><br>Admin: <b>admin</b> / <b>admin</b>'+
-        (regs.length?'<br>Regionais (senha <b>1234</b>): '+regs.map(r=>'<b>'+r.user+'</b>').join(', '):'');
-    } else { $('#demoHint').innerHTML=''; }
-  }
 }
 $('#loginGo').onclick=()=>{
   const u=$('#luser').value.trim(), p=$('#lpass').value;
@@ -499,8 +489,8 @@ $('#adminOut').onclick=$('#regOut').onclick=()=>{role=null;regional=null;pending
 $('#lpass')&&($('#lpass').onkeydown=e=>{if(e.key==='Enter')$('#loginGo').click();});
 $('#luser')&&($('#luser').onkeydown=e=>{if(e.key==='Enter')$('#loginGo').click();});
 $('#resetBtn')&&($('#resetBtn').onclick=()=>{
-  if(!confirm('Isso apaga todos os dados do portal neste navegador (acessos, templates, filas, solicitações) e recarrega com a demonstração. Continuar?'))return;
-  try{['agv_users','agv_regionais','agv_tpls','agv_filas','agv_reqs','agv_pin'].forEach(k=>localStorage.removeItem(k));}catch(e){}
+  if(!confirm('Isso apaga todos os dados do portal neste navegador (acessos, templates, filas, solicitações) e volta para a tela de criar o administrador. Continuar?'))return;
+  try{['agv_users','agv_regionais','agv_tpls','agv_filas','agv_reqs','agv_pin','agv_seed_v'].forEach(k=>localStorage.removeItem(k));}catch(e){}
   for(const k in mem)delete mem[k];
   location.reload();
 });
@@ -980,61 +970,6 @@ $('#rGen').onclick=()=>{const t=getTpls().find(x=>x.id===rSelTpl);
     ${bk}</div>`;
 };
 
-// ---------- seed de demonstração (recarrega quando a versão muda) ----------
-const SEED_V='3';
-if(getUsers().length===0 || DB.get('agv_seed_v',null)!==SEED_V){
-  setUsers([
-    {user:'admin',pass:'admin',role:'admin'},
-    {user:'mg70',pass:'1234',role:'regional',regional:'MG.70'},
-    {user:'ba25',pass:'1234',role:'regional',regional:'BA.25'},
-    {user:'mg132',pass:'1234',role:'regional',regional:'MG.132'},
-    {user:'se05',pass:'1234',role:'regional',regional:'SE.05'},
-    {user:'mg113',pass:'1234',role:'regional',regional:'MG.113'},
-    {user:'sp',pass:'1234',role:'regional',regional:'SP'},
-  ]);
-  setFilas([
-    {name:'Retorno Cobrança',regionais:['MG.70','BA.25','MG.132','MG.113','SP']},
-    {name:'Retorno Reativação',regionais:['RJ.04','MG.56']},
-    {name:'Atendimento Geral',regionais:getRegs()},
-    {name:'Retorno São João',regionais:['BA.25','SE.05']},
-  ]);
-  const T=(n,regs,text,cat)=>({id:'t'+Math.random().toString(36).slice(2,8),name:n,regionais:regs,text,categoria:cat||'utilitario'});
-  setTpls([
-    T('lembrete_vence',['MG.70','BA.25','MG.132'],`Universo AGV\nOi, [1]! 😊\nSó passando pra lembrar que seu pagamento vence [2]!\n🚗 Placa: [3]\n💵 Valor: R$ [4]\n📆 Vencimento: [5]\n📄 Pague com a chave Pix 👇\n[6]\n📄 Link do boleto 👇\n[7]\n✅ Já realizou o pagamento?`,'utilitario'),
-    T('sao_joao',['BA.25','SE.05'],`Universo AGV\nOi, [1]! 🌽🎉\nCom as festas de São João chegando, lembramos que o pagamento da sua proteção vence em [2]! 😊\n🚗 Placa: [3]\n💵 Valor: R$ [4]\n📆 Vencimento: [5]\n📄 Pix 👇\n[6]\n📄 Boleto 👇\n[7]\n🔥 Aproveite o São João protegido!`,'marketing'),
-    T('pendente',['MG.113','MG.70'],`Oi, [1]!👋\nSeu pagamento está PENDENTE!⚠️\n🚗 Placa: [2]\n💵 Valor: [3]\n📆 Vencimento: [4]\n🔑Chave Pix👇:\n[5]\n📄 Link do Boleto👇\n[6]\nDúvidas? Estamos à disposição! 💬`,'utilitario'),
-    T('inadimplente',['SP','MG.97'],`Universo AGV\nOlá, [1]! 👋\nIdentificamos uma PENDÊNCIA DE PAGAMENTO ⚠️\n💰 Valor: R$ [2]\n🚗 Veículo: [3]\n⚠️ Sua cobertura está TEMPORARIAMENTE SUSPENSA.\n💬 Precisa de ajuda?`,'utilitario'),
-    T('reativacao',['RJ.04','MG.56'],`Olá, [1]! 👋\nUniverso AGV.\nSua proteção está INATIVA.\n📋 Placa: [2]\nQue tal voltar a ficar protegido? Temos condições especiais! Responda SIM. 🚗✅`,'marketing'),
-  ]);
-  const mkReq=(daysAgo,reg,user,tpl,lines,fila,status,sched)=>{
-    const ts=Date.now()-daysAgo*86400000;const d=new Date(ts);
-    const dt=fmtDate(d)+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-    const tplObj=getTpls().find(x=>x.name===tpl);const rate=custoCat(tplObj?tplObj.categoria:'utilitario');
-    return {id:'r'+ts+Math.random().toString(36).slice(2,5),ts,dt,regional:reg,user,template:tpl,
-      file:tpl+'_'+reg.toLowerCase().replace('.','')+'.xlsx',lines,cost:lines*rate,
-      fila,sched:sched||'',status,doneAt:status==='Realizado'?dt:'',fn:tpl+'.csv',csv:''};
-  };
-  const reqList=[
-    mkReq(0,'BA.25','ba25','sao_joao',1738,'Retorno São João','Solicitado',''),
-    mkReq(0,'SE.05','se05','sao_joao',144,'Retorno São João','Solicitado',''),
-    mkReq(0,'SP','sp','inadimplente',62,'Retorno Cobrança','Solicitado',''),
-    mkReq(0,'MG.132','mg132','lembrete_vence',257,'Retorno Cobrança','Solicitado','16/06/2026 14:00'),
-    mkReq(1,'MG.113','mg113','pendente',304,'Retorno Cobrança','Realizado',''),
-    mkReq(5,'BA.25','ba25','lembrete_vence',697,'Retorno Cobrança','Realizado',''),
-  ];
-  // MG.70: 18 já REALIZADAS + 5 pendentes (pra testar paginação 5/página)
-  for(let i=0;i<18;i++){
-    const tpl=i%2===0?'lembrete_vence':'pendente';
-    reqList.unshift(mkReq(i+2,'MG.70','mg70',tpl,120+i*43,'Retorno Cobrança','Realizado',''));
-  }
-  for(let i=0;i<5;i++){
-    const tpl=i%2===0?'pendente':'lembrete_vence';
-    const sched=i===0?'16/06/2026 15:30':'';
-    reqList.unshift(mkReq(0,'MG.70','mg70',tpl,200+i*55,'Retorno Cobrança','Solicitado',sched));
-  }
-  setReqs(reqList);
-  DB.set('agv_seed_v',SEED_V);
-}
 refreshLogin();
 show('login');
 </script>
